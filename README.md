@@ -8,12 +8,12 @@ Desarrollada de manera 100% determinista usando **Node.js puro (ES Modules)**, e
 
 ## 📈 Estado del Proyecto (Avance Actual)
 
-Actualmente hemos completado con éxito el **Hito 1: CLI Operativo con Validación Estricta**.
+Actualmente hemos completado con éxito el **Hito 2: Extracción y Parseo Semántico de Git**.
 
 | Hito | Estado | Descripción |
 | :--- | :---: | :--- |
 | **Hito 1: CLI Operativo con Validación Estricta** | 🟢 Completado | Estructura de consola configurada con validación estricta de parámetros y control de salida. |
-| **Hito 2: Extracción y Parseo Semántico de Git** | 🟡 Pendiente | Integración con `simple-git` y validación de casos borde (sin repo, sin commits). |
+| **Hito 2: Extracción y Parseo Semántico de Git** | 🟢 Completado | Integración con `simple-git` y `conventional-commits-parser` con validación de casos borde (sin repo, sin commits). |
 | **Hito 3: Motor de Validación Estática - Linter** | ⚪ Pendiente | Validación léxica basada en diccionario de términos prohibidos y alternativos. |
 | **Hito 4: Agrupación, Renderizado y Generación** | ⚪ Pendiente | Renderizado final de plantillas Handlebars y flag de simulación `--dry-run`. |
 | **Hito 5: Suite de Pruebas y Control de Calidad** | ⚪ Pendiente | Cobertura total de pruebas y mocks de Git. |
@@ -61,13 +61,22 @@ Define el tipo de documento a generar. Solo se aceptan los siguientes valores:
 
 ### Ejemplos de Uso
 
-**Generar un changelog con validación estricta exitosa:**
+**Generar un changelog con validación estricta y previsualizar commits parseados:**
 ```bash
 node bin/cli.js generate changelog --from v1.0.0 --to v1.1.0 --dry-run
 ```
-*Salida:*
-```text
-Generando changelog... { from: 'v1.0.0', to: 'v1.1.0', dryRun: true }
+*Salida (Array de commits parseados en JSON):*
+```json
+[
+  {
+    "hash": "5a5948e5dbd8e70e5dc27e9d6ed3eb7f84ca7031",
+    "type": "feat",
+    "scope": "cli",
+    "subject": "rename option --desde to --from and add --to in English",
+    "body": null,
+    "notes": []
+  }
+]
 ```
 
 **Ejemplo de error de validación (argumento no soportado):**

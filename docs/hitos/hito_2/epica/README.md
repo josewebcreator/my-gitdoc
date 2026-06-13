@@ -9,15 +9,15 @@ Esta épica abarca las tareas técnicas para leer el historial de Git e integrar
 ---
 
 ## **Tareas de Desarrollo**
-*   [ ] Importar `simple-git` e inicializar el repositorio local.
-*   [ ] Validar que el directorio actual sea un repositorio Git (si no lo es, lanzar un error claro, imprimir en rojo y salir con código `1`).
-*   [ ] Validar que existan commits en el repositorio (si el historial está vacío, abortar la ejecución con código `1` y error en rojo).
-*   [ ] Implementar la búsqueda del último tag git usando `git.tags()`.
-*   [ ] Validar que las referencias (tag/commit/rama) provistas en `--from` o `--to` (si se usan) existan realmente en el historial (si no existen, abortar con error en rojo y código `1`).
-*   [ ] Escribir la consulta de logs construyendo los argumentos del rango de commits (ej. `[from, to]`).
-*   [ ] Retornar la lista raw con propiedades mínimas: hash e inspectMessage.
-*   [ ] Integrar `conventional-commits-parser` en [parser.js](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/src/parser.js) para tokenizar los strings de los commits.
-*   [ ] Mapear el output a la estructura definida de objetos:
+*   [x] Importar `simple-git` e inicializar el repositorio local.
+*   [x] Validar que el directorio actual sea un repositorio Git (si no lo es, lanzar un error claro, imprimir en rojo y salir con código `1`).
+*   [x] Validar que existan commits en el repositorio (si el historial está vacío, abortar la ejecución con código `1` y error en rojo).
+*   [x] Implementar la búsqueda del último tag git usando `git.tags()`.
+*   [x] Validar que las referencias (tag/commit/rama) provistas en `--from` o `--to` (si se usan) existan realmente en el historial (si no existen, abortar con error en rojo y código `1`).
+*   [x] Escribir la consulta de logs construyendo los argumentos del rango de commits (ej. `[from, to]`).
+*   [x] Retornar la lista raw con propiedades mínimas: hash e inspectMessage.
+*   [x] Integrar `conventional-commits-parser` en [parser.js](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/src/parser.js) para tokenizar los strings de los commits.
+*   [x] Mapear el output a la estructura definida de objetos:
     ```json
     {
       "hash": "abc1234",
