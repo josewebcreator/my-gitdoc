@@ -9,11 +9,11 @@ Esta épica agrupa las tareas técnicas para construir el punto de entrada de la
 ---
 
 ## **Tareas de Desarrollo**
-*   [ ] Configurar y validar el shebang (`#!/usr/bin/env node`) en el archivo ejecutable.
-*   [ ] Configurar la propiedad `"bin"` del `package.json` para mapear `tu-doc-cli` a [cli.js](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/bin/cli.js).
-*   [ ] Inicializar `commander` configurando el nombre, la versión y la descripción del CLI.
-*   [ ] Declarar el comando `generate` con el argumento `<tipo>` y los flags `--desde`, `--scope` y `--dry-run`.
-*   [ ] Implementar la validación lógica del `<tipo>` en la acción del comando:
+*   [x] Configurar y validar el shebang (`#!/usr/bin/env node`) en el archivo ejecutable.
+*   [x] Configurar la propiedad `"bin"` del `package.json` para mapear `tu-doc-cli` a [cli.js](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/bin/cli.js).
+*   [x] Inicializar `commander` configurando el nombre, la versión y la descripción del CLI.
+*   [x] Declarar el comando `generate` con el argumento `<tipo>` y los flags `--desde`, `--scope` y `--dry-run`.
+*   [x] Implementar la validación lógica del `<tipo>` en la acción del comando:
     ```javascript
     const tiposValidos = ['changelog', 'pap'];
     if (!tiposValidos.includes(tipo)) {
@@ -21,4 +21,4 @@ Esta épica agrupa las tareas técnicas para construir el punto de entrada de la
       process.exit(1);
     }
     ```
-*   [ ] Ejecutar `npm link` o `pnpm link` de manera local para validar la disponibilidad global del comando en la terminal de pruebas.
+*   [x] Ejecutar `npm link` o `pnpm link` de manera local para validar la disponibilidad global del comando en la terminal de pruebas.

@@ -11,6 +11,10 @@ Desarrollar los mecanismos para interactuar con la línea de comandos de Git de 
 1.  **Conexión Git Estable:** La librería `simple-git` debe leer correctamente el log local sin dependencias de variables de entorno globales.
 2.  **Rango de Búsqueda Flexible:** Si se pasa el flag `--desde`, el CLI debe extraer desde ese tag/commit hasta `HEAD`. Si no se pasa, debe detectar dinámicamente el último tag y extraer desde él; si no existe ningún tag, extraerá todo el historial.
 3.  **Desestructuración Semántica:** Cada commit devuelto por el parser debe contener campos como `type`, `scope`, `subject`, `body`, y un arreglo de notas para cambios disruptivos (*Breaking Changes*).
+4.  **Manejo de Casos Borde y Errores de Git:**
+    *   **Sin Repositorio Git:** Si el directorio actual no es un repositorio Git (o no está inicializado), la ejecución debe detenerse inmediatamente con código `1` y reportar el error en rojo.
+    *   **Historial Vacío:** Si el repositorio no tiene commits, reportar en rojo que no hay historial de commits y salir con código `1`.
+    *   **Referencia Inexistente:** Si el tag/commit provisto en `--desde` no existe en el historial del repositorio, se debe reportar el error en rojo y salir con código `1`.
 
 ---
 

@@ -59,6 +59,10 @@ graph TD
 #### **RF-5: Extracción de Historial de Git**
 *   **Descripción:** El sistema debe conectarse localmente con la base de datos de Git del directorio de trabajo.
 *   **Especificación:** Usará la librería `simple-git` para ejecutar de manera programática comandos de obtención de logs en formato raw, respetando los rangos configurados en el CLI.
+*   **Control de Errores y Casos Borde:**
+    *   **Ausencia de Repositorio:** Si la carpeta actual no es un repositorio Git válido o no tiene la carpeta `.git` inicializada, el sistema debe abortar inmediatamente la ejecución con un código de salida `1` e informar del error en color rojo (`picocolors.red`).
+    *   **Historial de Commits Vacío:** Si el repositorio está inicializado pero no cuenta con historial de commits (ningún commit en la rama actual), el sistema debe reportar el error en rojo y salir con código `1`.
+    *   **Referencia '--desde' Inválida o Inexistente:** Si el tag, rama o hash especificado en la bandera `--desde` no existe en el repositorio local, el sistema debe abortar en rojo indicando que la referencia es inválida, y salir con código `1`.
 
 #### **RF-6: Desestructuración y Parseo de Commits**
 *   **Descripción:** Los mensajes de commit se deben estructurar formalmente.
