@@ -13,9 +13,10 @@ program
 program
   .command('generate')
   .argument('<tipo>', 'Tipo de documento a generar (changelog o pap)')
-  .option('--desde <tag/commit>', 'Punto de inicio personalizado')
-  .option('--scope <nombre>', 'Aísla la documentación a un solo módulo')
-  .option('--dry-run', 'Prueba de salida en consola sin modificar archivos físicos')
+  .option('--from <tag/commit/hash>', 'Starting tag, commit hash, or branch')
+  .option('--to <tag/commit/hash>', 'Ending tag, commit hash, or branch')
+  .option('--scope <nombre>', 'Isolate documentation to a single module')
+  .option('--dry-run', 'Test output in console without modifying physical files')
   .action((tipo, options) => {
     const tiposValidos = ['changelog', 'pap'];
     if (!tiposValidos.includes(tipo)) {

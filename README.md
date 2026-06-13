@@ -52,7 +52,8 @@ Define el tipo de documento a generar. Solo se aceptan los siguientes valores:
 > Si se especifica un tipo inválido o ausente (por ejemplo, `tu-doc-cli generate invalid`), el programa imprimirá un error descriptivo en color rojo en `stderr` y abortará la ejecución con un código de salida `1`.
 
 #### 2. Opciones y Banderas Disponibles
-*   `--desde <tag/commit>`: Especifica la referencia de inicio (tag, rama o hash) del historial. Si no se provee, el CLI detectará automáticamente el último tag y extraerá a partir de él (o todo el historial si no hay tags).
+*   `--from <tag/commit/hash>`: Especifica la referencia de inicio (tag, commit hash o rama) para el rango del historial. Si no se provee, el CLI detectará automáticamente el último tag y extraerá a partir de él (o desde el origen del historial si no hay tags).
+*   `--to <tag/commit/hash>`: Especifica la referencia de fin (tag, commit hash o rama) para el rango del historial. Si no se provee, se asume `HEAD` por defecto.
 *   `--scope <nombre>`: Filtra y aísla la generación de documentación a un módulo o componente específico.
 *   `--dry-run`: Permite simular la operación imprimiendo el resultado directamente en la terminal sin escribir físicamente ningún archivo.
 
@@ -62,11 +63,11 @@ Define el tipo de documento a generar. Solo se aceptan los siguientes valores:
 
 **Generar un changelog con validación estricta exitosa:**
 ```bash
-node bin/cli.js generate changelog --desde v1.0.0 --dry-run
+node bin/cli.js generate changelog --from v1.0.0 --to v1.1.0 --dry-run
 ```
 *Salida:*
 ```text
-Generando changelog... { desde: 'v1.0.0', dryRun: true }
+Generando changelog... { from: 'v1.0.0', to: 'v1.1.0', dryRun: true }
 ```
 
 **Ejemplo de error de validación (argumento no soportado):**

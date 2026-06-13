@@ -43,7 +43,8 @@ tu-doc-cli generate [tipo]
 *   `pap`: Agrupación arquitectónica filtrada por módulos.
 
 ### Banderas (Flags)
-*   `--desde [tag/commit]`: Punto de inicio personalizado.
+*   `--from [tag/commit/hash]`: Referencia de inicio para el análisis (tag, commit o rama).
+*   `--to [tag/commit/hash]`: Referencia de término para el análisis (tag, commit o rama).
 *   `--scope [nombre]`: Aísla la documentación a un solo módulo.
 *   `--dry-run`: Prueba de salida en consola sin modificar archivos físicos.
 

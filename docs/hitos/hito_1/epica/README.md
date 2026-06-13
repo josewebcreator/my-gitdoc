@@ -12,7 +12,7 @@ Esta épica agrupa las tareas técnicas para construir el punto de entrada de la
 *   [x] Configurar y validar el shebang (`#!/usr/bin/env node`) en el archivo ejecutable.
 *   [x] Configurar la propiedad `"bin"` del `package.json` para mapear `tu-doc-cli` a [cli.js](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/bin/cli.js).
 *   [x] Inicializar `commander` configurando el nombre, la versión y la descripción del CLI.
-*   [x] Declarar el comando `generate` con el argumento `<tipo>` y los flags `--desde`, `--scope` y `--dry-run`.
+*   [x] Declarar el comando `generate` con el argumento `<tipo>` y los flags `--from`, `--to`, `--scope` y `--dry-run`.
 *   [x] Implementar la validación lógica del `<tipo>` en la acción del comando:
     ```javascript
     const tiposValidos = ['changelog', 'pap'];

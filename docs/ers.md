@@ -44,9 +44,11 @@ graph TD
 *   **Descripción:** El sistema debe proveer una interfaz de comandos de terminal estructurada mediante la librería `commander`.
 *   **Especificación:** El comando principal debe ser `tu-doc-cli generate <tipo>`, donde `<tipo>` solo acepta los valores `changelog` o `pap`. Si se introduce un valor diferente, el CLI debe terminar con un error descriptivo en la consola.
 
-#### **RF-2: Rango de Análisis Personalizado (`--desde`)**
-*   **Descripción:** El CLI debe permitir establecer un límite inferior para el rango de commits a extraer de Git.
-*   **Especificación:** Acepta el flag `--desde <referencia>` (donde referencia puede ser un tag, un hash de commit o una rama). Si no se provee, la extracción leerá desde el último Tag existente hasta `HEAD`; en caso de no existir ningún Tag, extraerá la totalidad del historial.
+#### **RF-2: Rango de Análisis Personalizado (`--from` y `--to`)**
+*   **Descripción:** El CLI debe permitir establecer los límites inferior y superior para el rango de commits a extraer de Git.
+*   **Especificación:** Acepta el flag `--from <referencia>` (límite inferior/inicio) y el flag `--to <referencia>` (límite superior/fin), donde `<referencia>` puede ser un tag, un hash de commit o una rama.
+    *   Si no se provee `--from`, la extracción leerá desde el último Tag existente hasta la referencia superior; en caso de no existir ningún Tag, extraerá desde el primer commit del historial.
+    *   Si no se provee `--to`, se asumirá por defecto `HEAD`.
 
 #### **RF-3: Filtrado por Componente/Módulo (`--scope`)**
 *   **Descripción:** Permite restringir la salida de la documentación a un subconjunto de commits.
@@ -62,7 +64,7 @@ graph TD
 *   **Control de Errores y Casos Borde:**
     *   **Ausencia de Repositorio:** Si la carpeta actual no es un repositorio Git válido o no tiene la carpeta `.git` inicializada, el sistema debe abortar inmediatamente la ejecución con un código de salida `1` e informar del error en color rojo (`picocolors.red`).
     *   **Historial de Commits Vacío:** Si el repositorio está inicializado pero no cuenta con historial de commits (ningún commit en la rama actual), el sistema debe reportar el error en rojo y salir con código `1`.
-    *   **Referencia '--desde' Inválida o Inexistente:** Si el tag, rama o hash especificado en la bandera `--desde` no existe en el repositorio local, el sistema debe abortar en rojo indicando que la referencia es inválida, y salir con código `1`.
+    *   **Referencias '--from' o '--to' Inválidas o Inexistentes:** Si el tag, rama o hash especificado en la bandera `--from` o `--to` no existe en el repositorio local, el sistema debe abortar en rojo indicando que la referencia es inválida, y salir con código `1`.
 
 #### **RF-6: Desestructuración y Parseo de Commits**
 *   **Descripción:** Los mensajes de commit se deben estructurar formalmente.
