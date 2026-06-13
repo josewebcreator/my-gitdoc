@@ -9,11 +9,11 @@ Esta épica agrupa las tareas técnicas de filtrado y linter aplicados a los com
 ---
 
 ## **Tareas de Desarrollo**
-*   [ ] Implementar la carga y lectura de [rules.json](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/config/rules.json).
-*   [ ] Escribir validaciones de obligatoriedad para los campos de commit: `type` y `subject`.
-*   [ ] Escribir la validación de pertenencia de tipos en base a los `allowedTypes`.
-*   [ ] Implementar una búsqueda con expresiones regulares o evaluación de texto insensible a mayúsculas para las llaves del objeto `forbiddenTerms`.
-*   [ ] En caso de detectar una anomalía, retornar un reporte detallando el error y la sugerencia de reemplazo:
+*   [x] Implementar la carga y lectura de [rules.json](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/config/rules.json).
+*   [x] Escribir validaciones de obligatoriedad para los campos de commit: `type` y `subject`.
+*   [x] Escribir la validación de pertenencia de tipos en base a los `allowedTypes`.
+*   [x] Implementar una búsqueda con expresiones regulares o evaluación de texto insensible a mayúsculas para las llaves del objeto `forbiddenTerms`.
+*   [x] En caso de detectar una anomalía, retornar un reporte detallando el error y la sugerencia de reemplazo:
     ```json
     {
       "valid": false,
@@ -22,4 +22,8 @@ Esta épica agrupa las tareas técnicas de filtrado y linter aplicados a los com
       ]
     }
     ```
-*   [ ] Acoplar la lógica del linter en la ejecución global del CLI para interrumpir el pipeline si algún commit es inválido.
+*   [x] Acoplar la lógica del linter en la ejecución global del CLI para interrumpir el pipeline si algún commit es inválido.
+
+---
+
+> ✅ **Hito 3 completado** — `feat/linter-engine` | Commit: `e153cf4` | Tests: 23/23 ✔
