@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { exec } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import { unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -34,13 +35,17 @@ test('CLI - should fail with exit code 1 and red error when tipo is invalid', as
 test('CLI - should succeed with exit code 0 when tipo is changelog', async () => {
   const { code, stdout, stderr } = await runCli('generate changelog');
   assert.strictEqual(code, 0, 'Exit code should be 0');
-  assert.ok(stdout.includes('Generando changelog...'), 'Should output progress message');
+  assert.ok(stdout.includes('CHANGELOG.md'), 'Should report CHANGELOG.md was written');
+  // Cleanup generated file
+  try { await unlink(path.resolve(process.cwd(), 'CHANGELOG.md')); } catch {}
 });
 
 test('CLI - should succeed with exit code 0 when tipo is pap', async () => {
   const { code, stdout, stderr } = await runCli('generate pap');
   assert.strictEqual(code, 0, 'Exit code should be 0');
-  assert.ok(stdout.includes('Generando pap...'), 'Should output progress message');
+  assert.ok(stdout.includes('PAP.md'), 'Should report PAP.md was written');
+  // Cleanup generated file
+  try { await unlink(path.resolve(process.cwd(), 'PAP.md')); } catch {}
 });
 
 test('CLI - should fail with exit code 1 and red error when running in a non-git directory', async () => {
@@ -68,21 +73,12 @@ test('CLI - should fail with exit code 1 and red error when reference is invalid
   assert.ok(stderr.includes('\u001b[31m') || stderr.includes('\x1b[31m'), 'Error message should be colored red');
 });
 
-test('CLI - should succeed and output JSON when --dry-run is passed', async () => {
+test('CLI - should succeed and output Markdown when --dry-run is passed', async () => {
   const { code, stdout } = await runCli('generate changelog --dry-run');
   assert.strictEqual(code, 0, 'Exit code should be 0');
-  
-  // Verify it is a valid JSON array
-  const parsed = JSON.parse(stdout);
-  assert.ok(Array.isArray(parsed), 'Output should be a JSON array');
-  if (parsed.length > 0) {
-    const commit = parsed[0];
-    assert.ok('hash' in commit, 'Commit should have hash');
-    assert.ok('type' in commit, 'Commit should have type');
-    assert.ok('scope' in commit, 'Commit should have scope');
-    assert.ok('subject' in commit, 'Commit should have subject');
-    assert.ok('body' in commit, 'Commit should have body');
-    assert.ok('notes' in commit, 'Commit should have notes');
-  }
+
+  // stdout debe contener el encabezado de CHANGELOG (Markdown)
+  assert.ok(stdout.includes('# CHANGELOG'), 'Output should be a Markdown CHANGELOG');
+  // No debe intentar parsear como JSON — el contrato cambió en hito 4
 });
 

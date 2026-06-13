@@ -1,8 +1,16 @@
 # CHANGELOG
 
+{{#if breakingChanges}}
+## ⚠️ Breaking Changes
+{{#each breakingChanges}}
+- **{{subject}}**{{#if note}} — {{note}}{{/if}} (`{{hash}}`)
+{{/each}}
+
+{{/if}}
 {{#each sections}}
 ## {{title}}
 {{#each commits}}
-- {{subject}} ({{hash}})
+- {{subject}}{{#if scope}} (`{{scope}}`){{/if}} (`{{hash}}`)
 {{/each}}
+
 {{/each}}

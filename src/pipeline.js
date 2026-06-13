@@ -1,7 +1,16 @@
+import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { getCommits } from './git.js';
 import { parseCommit } from './parser.js';
 import { lintCommit, loadRules } from './linter.js';
+import { renderDocument } from './renderer.js';
 import pc from 'picocolors';
+
+// Output file names indexed by tipo
+const OUTPUT_FILES = {
+  changelog: 'CHANGELOG.md',
+  pap:       'PAP.md',
+};
 
 export async function runPipeline(tipo, options = {}, rules = {}) {
   const commits = await getCommits(options);
@@ -44,10 +53,17 @@ export async function runGenerate(tipo, options = {}) {
       process.exit(1);
     }
 
+    // Render document (applies grouping + Handlebars)
+    const scopeFilter = options.scope || undefined;
+    const markdown = await renderDocument(parsedCommits, tipo, scopeFilter);
+
     if (options.dryRun) {
-      console.log(JSON.stringify(parsedCommits, null, 2));
+      process.stdout.write(pc.yellow('⚠  Modo simulación (--dry-run): no se escribirán archivos físicos.\n\n'));
+      process.stdout.write(markdown);
     } else {
-      console.log(`Generando ${tipo}...`);
+      const outputPath = resolve(process.cwd(), OUTPUT_FILES[tipo]);
+      await writeFile(outputPath, markdown, 'utf-8');
+      console.log(pc.green(`✅ Documento generado: ${OUTPUT_FILES[tipo]}`));
     }
   } catch (error) {
     console.error(pc.red(`Error: ${error.message}`));

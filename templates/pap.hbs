@@ -3,6 +3,8 @@
 {{#each scopes}}
 ## Componente: {{scope}}
 {{#each commits}}
-- {{subject}} ({{hash}})
+- **{{subject}}** (`{{hash}}`){{#if body}}
+  > {{{body}}}{{/if}}
 {{/each}}
+
 {{/each}}
