@@ -11,6 +11,7 @@ Este directorio contiene las definiciones de rol, responsabilidades y alcances d
 | **Pruebas (QA Agent)** | [testing_agent.md](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/.agents/testing_agent.md) | Suite de pruebas unitarias y de integración, mock de git y cobertura de casos extremos. |
 | **Commits Convencionales** | [committer_agent.md](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/.agents/committer_agent.md) | Validación de Conventional Commits, githooks (`commit-msg`) y guías de contribución. |
 | **Documentación (Docs Agent)** | [documentation_agent.md](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/.agents/documentation_agent.md) | Diseño de plantillas de renderizado (Handlebars/EJS) y mantenimiento del README/guía. |
+| **Convención de Ramas (Branching)** | [branching_agent.md](file:///c:/Users/User/Desktop/Laboratorio/gitdoc/.agents/branching_agent.md) | Reglas de nomenclatura de ramas, políticas de fusión en main y automatización de Git Flow. |
 
 ## Flujo de Trabajo Colaborativo
 
@@ -18,7 +19,9 @@ Este directorio contiene las definiciones de rol, responsabilidades y alcances d
 graph TD
     A[Agente de Requerimientos] -->|1. Especifica Reglas & Comandos| B[Agente de Desarrollo Core]
     C[Agente de Commits] -->|2. Valida Estándares de Entrada| B
-    B -->|3. Procesa & Mapea Datos| D[Agente de Documentación]
-    D -->|4. Genera Plantillas & Docs| E[Entregable Final]
-    F[Agente de Pruebas] -->|5. Asegura Calidad & Estabilidad| B
+    G[Agente de Ramas] -->|3. Regula Integración & Flujo de Ramas| B
+    B -->|4. Procesa & Mapea Datos| D[Agente de Documentación]
+    D -->|5. Genera Plantillas & Docs| E[Entregable Final]
+    F[Agente de Pruebas] -->|6. Asegura Calidad & Estabilidad| B
 ```
+

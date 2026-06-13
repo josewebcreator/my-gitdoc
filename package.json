@@ -1,0 +1,36 @@
+{
+  "name": "gitdoc",
+  "version": "1.0.0",
+  "description": "CLI de Documentación Automática basado en Conventional Commits",
+  "main": "bin/cli.js",
+  "bin": {
+    "tu-doc-cli": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node --test tests/**/*.test.js"
+  },
+  "keywords": [
+    "cli",
+    "git",
+    "changelog",
+    "documentation",
+    "conventional-commits"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.6.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "dependencies": {
+    "commander": "^15.0.0",
+    "conventional-commits-parser": "^6.4.0",
+    "handlebars": "^4.7.9",
+    "picocolors": "^1.1.1",
+    "simple-git": "^3.36.0"
+  }
+}
