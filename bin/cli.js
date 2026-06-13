@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import pc from 'picocolors';
 
 const program = new Command();
 
@@ -16,6 +17,11 @@ program
   .option('--scope <nombre>', 'Aísla la documentación a un solo módulo')
   .option('--dry-run', 'Prueba de salida en consola sin modificar archivos físicos')
   .action((tipo, options) => {
+    const tiposValidos = ['changelog', 'pap'];
+    if (!tiposValidos.includes(tipo)) {
+      console.error(pc.red(`Error: El tipo de documento "${tipo}" no es válido. Debe ser "changelog" o "pap".`));
+      process.exit(1);
+    }
     console.log(`Generando ${tipo}...`, options);
   });
 
