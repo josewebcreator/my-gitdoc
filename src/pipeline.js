@@ -47,9 +47,12 @@ export async function runGenerate(tipo, options = {}) {
 
     const parsedCommits = await runPipeline(tipo, options, rules);
 
-    // Run linter on every parsed commit
+    // Run linter only on commits that were successfully parsed as conventional commits
+    // (type !== null). Non-conventional commits are silently ignored — they will
+    // also be filtered out by the renderer and never appear in the output.
     const lintErrors = [];
     for (const commit of parsedCommits) {
+      if (commit.type === null || commit.type === undefined) continue;
       const result = lintCommit(commit, rules);
       if (!result.valid) {
         lintErrors.push({ commit, errors: result.errors });
