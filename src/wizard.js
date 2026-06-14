@@ -37,10 +37,11 @@ async function getGitRefs() {
  */
 async function getKnownScopes(from, to) {
   try {
-    const commits = await getCommits({ from, to });
-    const scopes = commits
-      .map(c => parseCommit(c.inspectMessage).scope)
-      .filter(Boolean);
+    const scopes = [];
+    for await (const c of getCommits({ from, to })) {
+      const scope = parseCommit(c.inspectMessage).scope;
+      if (scope) scopes.push(scope);
+    }
     return [...new Set(scopes)];
   } catch {
     return [];
@@ -235,7 +236,10 @@ export async function runWizardGenerate(prompts = {}) {
     // Previsualización: renderizar y mostrar en consola
     try {
       const { runPipeline } = await import('./pipeline.js');
-      const parsedCommits = await runPipeline(tipo, options);
+      const parsedCommits = [];
+      for await (const commit of runPipeline(tipo, options)) {
+        parsedCommits.push(commit);
+      }
       const markdown = await renderDocument(parsedCommits, tipo, {
         scope: options.scope,
         verbose: options.verbose,

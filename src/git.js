@@ -1,6 +1,8 @@
 import { simpleGit } from 'simple-git';
+import { spawn } from 'node:child_process';
+import readline from 'node:readline';
 
-export async function getCommits(options = {}) {
+export async function* getCommits(options = {}) {
   const git = simpleGit();
 
   // 1. Validate repository presence
@@ -72,29 +74,51 @@ export async function getCommits(options = {}) {
     }
   }
 
-  // 4. Query logs with range
-  const logOptions = {
-    format: {
-      hash: '%H',
-      inspectMessage: '%B'
-    }
-  };
+  // 4. Query logs with range using spawn
+  const args = ['log', '--format=-----GIT-DOC-COMMIT-----%n%H%n%B'];
 
   if (from && to) {
-    logOptions.from = from;
-    logOptions.to = to;
+    args.push(`${from}..${to}`);
   } else if (from) {
-    logOptions.from = from;
-    logOptions.to = 'HEAD';
+    args.push(`${from}..HEAD`);
   } else if (to) {
-    logOptions[to] = null;
+    args.push(to);
   }
 
-  try {
-    const logResult = await git.log(logOptions);
-    return logResult.all;
-  } catch (err) {
-    throw new Error(`Error al obtener el historial de Git: ${err.message}`);
+  const child = spawn('git', args);
+  const rl = readline.createInterface({ input: child.stdout });
+
+  let currentHash = null;
+  let currentMessage = [];
+
+  for await (const line of rl) {
+    if (line === '-----GIT-DOC-COMMIT-----') {
+      if (currentHash) {
+        yield { hash: currentHash, inspectMessage: currentMessage.join('\n').trim() };
+      }
+      currentHash = null;
+      currentMessage = [];
+    } else if (!currentHash) {
+      currentHash = line;
+    } else {
+      currentMessage.push(line);
+    }
   }
+
+  if (currentHash) {
+    yield { hash: currentHash, inspectMessage: currentMessage.join('\n').trim() };
+  }
+
+  await new Promise((resolve, reject) => {
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Error al obtener el historial de Git: git log finalizó con código ${code}`));
+      } else {
+        resolve();
+      }
+    });
+    child.on('error', (err) => {
+      reject(new Error(`Error al obtener el historial de Git: ${err.message}`));
+    });
+  });
 }
-

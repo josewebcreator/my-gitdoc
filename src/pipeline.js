@@ -13,12 +13,13 @@ const OUTPUT_FILES = {
   pap:       'PAP.md',
 };
 
-export async function runPipeline(tipo, options = {}, rules = {}) {
-  const commits = await getCommits(options);
-  return commits.map(c => ({
-    hash: c.hash,
-    ...parseCommit(c.inspectMessage)
-  }));
+export async function* runPipeline(tipo, options = {}, rules = {}) {
+  for await (const c of getCommits(options)) {
+    yield {
+      hash: c.hash,
+      ...parseCommit(c.inspectMessage)
+    };
+  }
 }
 
 export async function runGenerate(tipo, options = {}) {
@@ -45,18 +46,18 @@ export async function runGenerate(tipo, options = {}) {
       }
     }
 
-    const parsedCommits = await runPipeline(tipo, options, rules);
-
-    // Run linter only on commits that were successfully parsed as conventional commits
-    // (type !== null). Non-conventional commits are silently ignored — they will
-    // also be filtered out by the renderer and never appear in the output.
+    const parsedCommits = [];
     const lintErrors = [];
-    for (const commit of parsedCommits) {
+
+    for await (const commit of runPipeline(tipo, options, rules)) {
       if (commit.type === null || commit.type === undefined) continue;
+      
       const result = lintCommit(commit, rules);
       if (!result.valid) {
         lintErrors.push({ commit, errors: result.errors });
       }
+      
+      parsedCommits.push(commit);
     }
 
     if (lintErrors.length > 0) {
