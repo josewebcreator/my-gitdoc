@@ -27,6 +27,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
     "commander": "^15.0.0",
     "conventional-commits-parser": "^6.4.0",
     "handlebars": "^4.7.9",
