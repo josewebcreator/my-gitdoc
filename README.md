@@ -8,15 +8,15 @@ Desarrollada de manera 100% determinista usando **Node.js puro (ES Modules)**, e
 
 ## 📈 Estado del Proyecto (Avance Actual)
 
-Actualmente hemos completado con éxito el **Hito 3: Motor de Validación Estática - Linter**.
+Actualmente hemos completado con éxito el **Hito 5: Suite de Pruebas y Control de Calidad**.
 
 | Hito | Estado | Descripción |
 | :--- | :---: | :--- |
 | **Hito 1: CLI Operativo con Validación Estricta** | 🟢 Completado | Estructura de consola configurada con validación estricta de parámetros y control de salida. |
 | **Hito 2: Extracción y Parseo Semántico de Git** | 🟢 Completado | Integración con `simple-git` y `conventional-commits-parser` con validación de casos borde (sin repo, sin commits). |
 | **Hito 3: Motor de Validación Estática - Linter** | 🟢 Completado | Linter de negocio con validación de campos obligatorios, tipos permitidos y filtro léxico case-insensitive sobre vocabulario corporativo prohibido. |
-| **Hito 4: Agrupación, Renderizado y Generación** | ⚪ Pendiente | Renderizado final de plantillas Handlebars y flag de simulación `--dry-run`. |
-| **Hito 5: Suite de Pruebas y Control de Calidad** | ⚪ Pendiente | Cobertura total de pruebas y mocks de Git. |
+| **Hito 4: Agrupación, Renderizado y Generación** | 🟢 Completado | Renderizado final de plantillas Handlebars y flag de simulación `--dry-run`. |
+| **Hito 5: Suite de Pruebas y Control de Calidad** | 🟢 Completado | Cobertura total de pruebas y mocks de Git. |
 
 ---
 
@@ -147,19 +147,16 @@ Los cambios se aplican inmediatamente sin recompilar.
 ### Ejecutar la suite de pruebas
 
 ```bash
-npm test
+pnpm test
 ```
 *Salida esperada:*
 ```
+✔ CLI - should fail with exit code 1 and red error when tipo is invalid
+✔ CLI - should succeed with exit code 0 when tipo is changelog
+...
+✔ getCommits - successful extraction of all commits
 ✔ lintCommit - commit válido completo
-✔ lintCommit - falta el campo type (null)
-✔ lintCommit - falta el campo subject (null)
-✔ lintCommit - type no pertenece a allowedTypes
-✔ lintCommit - término prohibido "fraude" en subject
-✔ lintCommit - término prohibido "hack" en body
-✔ lintCommit - término prohibido en mayúsculas (case-insensitive)
-✔ lintCommit - múltiples errores simultáneos
-... (23 tests en total)
+... (40 tests en total)
 ```
 
 ---
