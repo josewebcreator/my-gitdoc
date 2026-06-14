@@ -2,6 +2,9 @@
 
 `tu-doc-cli` es una herramienta de línea de comandos (CLI) diseñada para automatizar la creación de CHANGELOGs y PAPs (Procedimiento de Puesta en Producción) a partir de los commits de Git, adhiriéndose de manera estricta al estándar de **Conventional Commits**.
 
+> [!IMPORTANT]
+> **Requisito Estricto:** Esta herramienta requiere que tu historial siga el estándar [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/). Si tus commits no siguen este formato (ej. deben ser `feat: agrega login` o `fix: corrige estilos`), el CLI rechazará la generación y mostrará un error. Si no estás familiarizado con este estándar, por favor lee la [documentación oficial aquí](https://www.conventionalcommits.org/es/v1.0.0/) antes de usar la herramienta.
+
 Desarrollada de manera 100% determinista usando **Node.js puro (ES Modules)**, esta herramienta procesa el historial local de Git mediante analizadores estáticos sin recurrir a llamadas externas de Inteligencia Artificial.
 
 ---
@@ -33,10 +36,19 @@ Luego podrás ejecutar simplemente `tu-doc-cli wizard` o `tu-doc-cli generate` d
 ## 🛠️ Comandos y Uso Avanzado
 
 ### 1. Asistente Interactivo: `wizard`
-La forma más amigable de utilizar el CLI. Al escribir `npx tu-doc-cli wizard`, el sistema te dará a elegir qué quieres hacer. También puedes acceder a los flujos directamente:
+La forma más amigable de utilizar el CLI. Al escribir `npx tu-doc-cli wizard`, el sistema te dará a elegir qué quieres hacer. Es la opción recomendada si es tu primera vez usando la herramienta.
 
-*   `npx tu-doc-cli wizard init`: Inicia una serie de preguntas para generar el archivo de configuración `.gitdocrc.json` a la medida de tu proyecto.
-*   `npx tu-doc-cli wizard generate`: Te guía paso a paso para seleccionar el tipo de documento y elegir visualmente desde qué tag hasta qué tag quieres generarlo.
+*   `npx tu-doc-cli wizard init`: 
+    Inicia una serie de preguntas para generar el archivo de configuración `.gitdocrc.json` a la medida de tu proyecto. El asistente te preguntará:
+    *   El nombre de tu proyecto.
+    *   La URL remota (para habilitar automáticamente el hipervínculo de commits y tickets).
+    *   Si deseas añadir palabras corporativas prohibidas personalizadas para el linter.
+*   `npx tu-doc-cli wizard generate`: 
+    Te guía paso a paso para compilar un reporte. El asistente te preguntará interactivamente:
+    *   El tipo de documento que necesitas (`changelog` o `pap`).
+    *   El tag de inicio (mostrándote una lista desplegable con todos los tags locales de Git para que elijas con las flechas del teclado).
+    *   El tag de fin.
+    *   Si deseas aislar la documentación por módulo (`scope`) y si quieres hacer un simulacro en consola (`dry-run`).
 
 ### 2. Generación Manual: `generate`
 Diseñado para integraciones automatizadas (CI/CD) o usuarios avanzados que prefieren escribir todo en una línea:
