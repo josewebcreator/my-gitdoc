@@ -1,11 +1,17 @@
 {
-  "name": "gitdoc",
+  "name": "tu-doc-cli",
   "version": "1.0.0",
   "description": "CLI de Documentación Automática basado en Conventional Commits",
   "main": "bin/cli.js",
   "bin": {
     "tu-doc-cli": "./bin/cli.js"
   },
+  "files": [
+    "bin",
+    "src",
+    "config",
+    "templates"
+  ],
   "scripts": {
     "test": "node --test --experimental-test-module-mocks tests/**/*.test.js"
   },
