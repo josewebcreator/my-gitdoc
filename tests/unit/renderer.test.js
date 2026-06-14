@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { groupForChangelog, groupForPap, renderDocument } from '../../src/renderer.js';
+import { groupForChangelog, groupForPap, renderDocument, parseInstructions, generateRemoteLinks } from '../../src/renderer.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures — commits de prueba
@@ -209,4 +209,173 @@ test('renderDocument changelog - incluye commits poco relevantes en modo verboso
   assert.ok(!mdSilent.includes('Otros Cambios'), 'No debe incluir sección chore');
   assert.ok(!mdSilent.includes('Documentación'), 'No debe incluir sección docs');
   assert.ok(!mdSilent.includes('update npm run script'), 'No debe incluir el commit chore');
+});
+
+// ---------------------------------------------------------------------------
+// Hito 7 — parseInstructions
+// ---------------------------------------------------------------------------
+
+test('parseInstructions - extrae directivas RUN, ROLLBACK y VERIFY del body', () => {
+  const body = `RUN: npm run migrate\nROLLBACK: npm run migrate:undo\nVERIFY: curl http://localhost/health`;
+  const result = parseInstructions(body);
+
+  assert.deepStrictEqual(result.run,      ['npm run migrate']);
+  assert.deepStrictEqual(result.rollback, ['npm run migrate:undo']);
+  assert.deepStrictEqual(result.verify,   ['curl http://localhost/health']);
+});
+
+test('parseInstructions - MIGRATE: va a la sección run', () => {
+  const body = `MIGRATE: rails db:migrate`;
+  const result = parseInstructions(body);
+
+  assert.deepStrictEqual(result.run, ['rails db:migrate'], 'MIGRATE debe ir al arreglo run');
+});
+
+test('parseInstructions - acepta directivas en mayúsculas y minúsculas', () => {
+  const body = `run: node seed.js\nrollback: node seed:undo.js\nverify: npm test`;
+  const result = parseInstructions(body);
+
+  assert.deepStrictEqual(result.run,      ['node seed.js']);
+  assert.deepStrictEqual(result.rollback, ['node seed:undo.js']);
+  assert.deepStrictEqual(result.verify,   ['npm test']);
+});
+
+test('parseInstructions - acumula múltiples directivas del mismo tipo', () => {
+  const body = `RUN: step one\nRUN: step two\nVERIFY: check one\nVERIFY: check two`;
+  const result = parseInstructions(body);
+
+  assert.strictEqual(result.run.length,    2, 'debe haber 2 instrucciones run');
+  assert.strictEqual(result.verify.length, 2, 'debe haber 2 instrucciones verify');
+});
+
+test('parseInstructions - ignora líneas sin directiva', () => {
+  const body = `Este es un cuerpo normal sin directivas.\nSolo descripción del cambio.`;
+  const result = parseInstructions(body);
+
+  assert.deepStrictEqual(result.run,      []);
+  assert.deepStrictEqual(result.rollback, []);
+  assert.deepStrictEqual(result.verify,   []);
+});
+
+test('parseInstructions - retorna vacío si body es null o undefined', () => {
+  const fromNull      = parseInstructions(null);
+  const fromUndefined = parseInstructions(undefined);
+
+  assert.deepStrictEqual(fromNull.run,      []);
+  assert.deepStrictEqual(fromUndefined.run, []);
+});
+
+// ---------------------------------------------------------------------------
+// Hito 7 — generateRemoteLinks
+// ---------------------------------------------------------------------------
+
+const REMOTE_URL = 'https://github.com/user/repo';
+
+test('generateRemoteLinks - convierte hash de 7 caracteres en hipervínculo', () => {
+  const result = generateRemoteLinks('commit abc1234 fue el responsable', REMOTE_URL);
+  assert.ok(result.includes('[abc1234](https://github.com/user/repo/commit/abc1234)'));
+});
+
+test('generateRemoteLinks - convierte hash de 40 caracteres en hipervínculo', () => {
+  const hash40 = 'a'.repeat(40);
+  const result = generateRemoteLinks(`commit ${hash40}`, REMOTE_URL);
+  assert.ok(result.includes(`[${hash40.slice(0, 7)}](${REMOTE_URL}/commit/${hash40})`));
+});
+
+test('generateRemoteLinks - convierte referencia #NNN en hipervínculo de issue', () => {
+  const result = generateRemoteLinks('fix para el issue #42 cerrado', REMOTE_URL);
+  assert.ok(result.includes('[#42](https://github.com/user/repo/issues/42)'));
+});
+
+test('generateRemoteLinks - maneja múltiples hashes e issues en el mismo texto', () => {
+  const result = generateRemoteLinks('ver abc1234 y #99 para contexto', REMOTE_URL);
+  assert.ok(result.includes('[abc1234](https://github.com/user/repo/commit/abc1234)'));
+  assert.ok(result.includes('[#99](https://github.com/user/repo/issues/99)'));
+});
+
+test('generateRemoteLinks - retorna el texto sin cambios si remoteUrl no está definido', () => {
+  const text = 'commit abc1234 y #10';
+  const result = generateRemoteLinks(text, undefined);
+  assert.strictEqual(result, text, 'el texto debe permanecer igual sin remoteUrl');
+});
+
+// ---------------------------------------------------------------------------
+// Hito 7 — groupForPap con instrucciones estructuradas
+// ---------------------------------------------------------------------------
+
+test('groupForPap - enriquece commits con instrucciones parseadas del body', () => {
+  const commits = [
+    makeCommit({
+      hash: 'p1',
+      type: 'ci',
+      scope: 'docker',
+      subject: 'setup ci pipeline',
+      body: 'RUN: docker-compose up\nROLLBACK: docker-compose down\nVERIFY: curl http://localhost',
+    }),
+  ];
+
+  const { scopes } = groupForPap(commits);
+  const commit = scopes[0].commits[0];
+
+  assert.ok(commit.hasInstructions, 'debe marcar hasInstructions como true');
+  assert.deepStrictEqual(commit.instructions.run,      ['docker-compose up']);
+  assert.deepStrictEqual(commit.instructions.rollback, ['docker-compose down']);
+  assert.deepStrictEqual(commit.instructions.verify,   ['curl http://localhost']);
+});
+
+test('groupForPap - hasInstructions es false si el body no tiene directivas', () => {
+  const commits = [
+    makeCommit({ hash: 'p2', type: 'build', scope: 'config', subject: 'update deps', body: 'solo descripción' }),
+  ];
+
+  const { scopes } = groupForPap(commits);
+  const commit = scopes[0].commits[0];
+
+  assert.strictEqual(commit.hasInstructions, false, 'no debe tener instrucciones');
+});
+
+// ---------------------------------------------------------------------------
+// Hito 7 — renderDocument PAP con secciones estructuradas
+// ---------------------------------------------------------------------------
+
+test('renderDocument pap - genera secciones de Ejecución, Marcha Atrás y Pruebas de Humo', async () => {
+  const commits = [
+    makeCommit({
+      hash: 'render1',
+      type: 'ci',
+      scope: 'docker',
+      subject: 'setup ci pipeline',
+      body: 'RUN: docker-compose up\nROLLBACK: docker-compose down\nVERIFY: curl http://localhost',
+    }),
+  ];
+
+  const md = await renderDocument(commits, 'pap');
+
+  assert.ok(md.includes('Ejecución'),       'debe incluir sección Ejecución');
+  assert.ok(md.includes('Marcha Atrás'),    'debe incluir sección Marcha Atrás');
+  assert.ok(md.includes('Pruebas de Humo'), 'debe incluir sección Pruebas de Humo');
+  assert.ok(md.includes('docker-compose up'),     'debe incluir el comando RUN');
+  assert.ok(md.includes('docker-compose down'),   'debe incluir el comando ROLLBACK');
+  assert.ok(md.includes('curl http://localhost'), 'debe incluir el comando VERIFY');
+});
+
+test('renderDocument changelog - aplica autolinking cuando remoteUrl está configurado', async () => {
+  const commits = [
+    makeCommit({ hash: 'abc1234', type: 'feat', subject: 'implement feature #10' }),
+  ];
+
+  const md = await renderDocument(commits, 'changelog', { remoteUrl: REMOTE_URL });
+
+  assert.ok(md.includes(`[abc1234](${REMOTE_URL}/commit/abc1234)`), 'debe linkear el hash');
+  assert.ok(md.includes(`[#10](${REMOTE_URL}/issues/10)`),          'debe linkear el issue #10');
+});
+
+test('renderDocument changelog - NO aplica autolinking si remoteUrl no está definido', async () => {
+  const commits = [
+    makeCommit({ hash: 'abc1234', type: 'feat', subject: 'implement feature #10' }),
+  ];
+
+  const md = await renderDocument(commits, 'changelog');
+
+  assert.ok(!md.includes('github.com'), 'no debe haber links de github sin remoteUrl');
 });

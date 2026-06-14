@@ -2,9 +2,37 @@
 
 {{#each scopes}}
 ## Componente: {{scope}}
+
 {{#each commits}}
-- **{{subject}}** (`{{hash}}`){{#if body}}
-  > {{{body}}}{{/if}}
+### {{subject}}{{#if scope}} (`{{scope}}`){{/if}} (`{{hash}}`)
+
+{{#if hasInstructions}}
+{{#if instructions.run}}
+**Ejecución:**
+{{#each instructions.run}}
+- `{{this}}`
 {{/each}}
 
+{{/if}}
+{{#if instructions.rollback}}
+**Marcha Atrás:**
+{{#each instructions.rollback}}
+- `{{this}}`
+{{/each}}
+
+{{/if}}
+{{#if instructions.verify}}
+**Pruebas de Humo:**
+{{#each instructions.verify}}
+- `{{this}}`
+{{/each}}
+
+{{/if}}
+{{else}}
+{{#if body}}
+> {{{body}}}
+
+{{/if}}
+{{/if}}
+{{/each}}
 {{/each}}

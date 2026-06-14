@@ -26,6 +26,76 @@ const TYPE_TITLES = {
   revert:   'Reversiones',
 };
 
+// --- Hito 7: Directivas técnicas ---
+
+// Regex para detectar directivas técnicas al inicio de una línea (case-insensitive)
+const DIRECTIVE_REGEX = /^(RUN|MIGRATE|ROLLBACK|VERIFY)\s*:\s*(.+)$/i;
+
+/**
+ * Parsea el body de un commit extrayendo líneas de directivas técnicas.
+ * Soporta RUN: / MIGRATE: (ejecución), ROLLBACK: (marcha atrás), VERIFY: (pruebas de humo).
+ *
+ * @param {string|null|undefined} body - Cuerpo del commit
+ * @returns {{ run: string[], rollback: string[], verify: string[] }}
+ */
+export function parseInstructions(body) {
+  const result = { run: [], rollback: [], verify: [] };
+  if (!body) return result;
+
+  const lines = body.split('\n');
+  for (const line of lines) {
+    const match = line.trim().match(DIRECTIVE_REGEX);
+    if (!match) continue;
+    const directive = match[1].toUpperCase();
+    const content = match[2].trim();
+
+    if (directive === 'RUN' || directive === 'MIGRATE') {
+      result.run.push(content);
+    } else if (directive === 'ROLLBACK') {
+      result.rollback.push(content);
+    } else if (directive === 'VERIFY') {
+      result.verify.push(content);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Genera hipervínculos Markdown para hashes de commits e issues (#NNN)
+ * usando la URL base del repositorio remoto.
+ *
+ * @param {string} text - Texto donde buscar patrones
+ * @param {string|undefined} remoteUrl - URL base del repositorio (ej. https://github.com/user/repo)
+ * @returns {string} Texto con hipervínculos insertados
+ */
+export function generateRemoteLinks(text, remoteUrl) {
+  if (!remoteUrl || !text) return text;
+
+  // Normalizar: eliminar trailing slash
+  const base = remoteUrl.replace(/\/$/, '');
+
+  // Reemplazar hashes largos (40 hex) antes que cortos (7 hex) para evitar colisiones
+  let result = text.replace(
+    /\b([0-9a-f]{40})\b/g,
+    (_, hash) => `[${hash.slice(0, 7)}](${base}/commit/${hash})`
+  );
+
+  // Solo linkear hashes de 7 chars que NO estén ya dentro de un link Markdown ([texto])
+  result = result.replace(
+    /(?<!\[)\b([0-9a-f]{7})\b(?!\w)(?!\])/g,
+    (_, hash) => `[${hash}](${base}/commit/${hash})`
+  );
+
+  // Reemplazar referencias a issues/PRs (#NNN) — solo si no están ya dentro de un link
+  result = result.replace(
+    /(?<!\[)#(\d+)(?!\])/g,
+    (_, num) => `[#${num}](${base}/issues/${num})`
+  );
+
+  return result;
+}
+
 /**
  * Agrupa commits para el reporte Changelog.
  * Filtra por feat | fix | perf | refactor y opcionalmente otros tipos en modo verboso.
@@ -89,6 +159,7 @@ export function groupForChangelog(commits, scopeFilter, verbose = false) {
  * Agrupa commits para el reporte PAP.
  * Incluye ci | build o commits con scope de infraestructura.
  * Agrupa por scope (o 'sin-scope' cuando es undefined).
+ * Cada commit es enriquecido con sus instrucciones técnicas parseadas del body.
  *
  * @param {object[]} commits
  * @param {string|undefined} scopeFilter
@@ -109,7 +180,16 @@ export function groupForPap(commits, scopeFilter) {
     if (!scopeMap.has(key)) {
       scopeMap.set(key, { scope: key, commits: [] });
     }
-    scopeMap.get(key).commits.push(commit);
+
+    // Hito 7: enriquecer cada commit con instrucciones técnicas parseadas
+    const instructions = parseInstructions(commit.body);
+    const hasInstructions = instructions.run.length > 0 || instructions.rollback.length > 0 || instructions.verify.length > 0;
+
+    scopeMap.get(key).commits.push({
+      ...commit,
+      instructions,
+      hasInstructions,
+    });
   }
 
   return { scopes: [...scopeMap.values()] };
@@ -131,6 +211,7 @@ export async function loadTemplate(tipo, customTemplatePath) {
 
 /**
  * Orquesta el renderizado completo: agrupa, carga plantilla e inyecta con Handlebars.
+ * Si `options.remoteUrl` está definido, aplica autolinking de hashes e issues en el markdown final.
  *
  * @param {object[]} commits     - Commits parseados y validados
  * @param {'changelog'|'pap'} tipo
@@ -141,11 +222,13 @@ export async function renderDocument(commits, tipo, optionsOrScope) {
   let scopeFilter;
   let templatePath;
   let verbose = false;
+  let remoteUrl;
 
   if (optionsOrScope && typeof optionsOrScope === 'object') {
     scopeFilter = optionsOrScope.scope;
     templatePath = optionsOrScope.template;
     verbose = !!optionsOrScope.verbose;
+    remoteUrl = optionsOrScope.remoteUrl;
   } else {
     scopeFilter = optionsOrScope;
   }
@@ -166,5 +249,12 @@ export async function renderDocument(commits, tipo, optionsOrScope) {
     data = groupForPap(commitsWithVerbose, scopeFilter);
   }
 
-  return template(data);
+  let markdown = template(data);
+
+  // Hito 7: aplicar autolinking remoto si remoteUrl está configurado
+  if (remoteUrl) {
+    markdown = generateRemoteLinks(markdown, remoteUrl);
+  }
+
+  return markdown;
 }

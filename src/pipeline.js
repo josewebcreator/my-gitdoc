@@ -72,6 +72,7 @@ export async function runGenerate(tipo, options = {}) {
       scope: options.scope || undefined,
       template: options.template || undefined,
       verbose: options.verbose || false,
+      remoteUrl: rules.remoteUrl || undefined,
     });
 
     if (options.dryRun) {
