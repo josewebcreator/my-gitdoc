@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "CLI de Documentación Automática basado en Conventional Commits",
   "main": "bin/cli.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/josewebcreator/my-gitdoc.git"
+  },
   "bin": {
     "tu-doc-cli": "./bin/cli.js"
   },
