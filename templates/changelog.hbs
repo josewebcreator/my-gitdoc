@@ -3,14 +3,16 @@
 {{#if breakingChanges}}
 ## ⚠️ Breaking Changes
 {{#each breakingChanges}}
-- **{{subject}}**{{#if note}} — {{note}}{{/if}} (`{{hash}}`)
+- **{{subject}}**{{#if note}} — {{note}}{{/if}} (`{{hash}}`){{#if verbose}}{{#if body}}
+  > {{{body}}}{{/if}}{{/if}}
 {{/each}}
 
 {{/if}}
 {{#each sections}}
 ## {{title}}
 {{#each commits}}
-- {{subject}}{{#if scope}} (`{{scope}}`){{/if}} (`{{hash}}`)
+- {{subject}}{{#if scope}} (`{{scope}}`){{/if}} (`{{hash}}`){{#if verbose}}{{#if body}}
+  > {{{body}}}{{/if}}{{/if}}
 {{/each}}
 
 {{/each}}

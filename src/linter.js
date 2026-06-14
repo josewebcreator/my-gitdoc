@@ -16,6 +16,31 @@ export function loadRules(rulesPath) {
 }
 
 /**
+ * Performs a recursive deep merge of two configuration objects.
+ * Dict structures are merged, while arrays and primitives are overwritten.
+ * @param {object} target
+ * @param {object} source
+ * @returns {object} Merged object
+ */
+export function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+          result[key] = deepMerge(result[key], source[key]);
+        } else {
+          result[key] = { ...source[key] };
+        }
+      } else {
+        result[key] = source[key];
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Validates a single parsed commit against business rules.
  * @param {object} parsedCommit - Commit object from parser.js
  * @param {object} rules - Rules object from loadRules()

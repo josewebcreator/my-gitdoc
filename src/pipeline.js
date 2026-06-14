@@ -1,8 +1,9 @@
-import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { getCommits } from './git.js';
 import { parseCommit } from './parser.js';
-import { lintCommit, loadRules } from './linter.js';
+import { lintCommit, loadRules, deepMerge } from './linter.js';
 import { renderDocument } from './renderer.js';
 import pc from 'picocolors';
 
@@ -29,7 +30,20 @@ export async function runGenerate(tipo, options = {}) {
 
   try {
     // Load business rules once
-    const rules = loadRules('config/rules.json');
+    let rules = loadRules('config/rules.json');
+
+    // Load local config .gitdocrc.json if present
+    const localConfigPath = resolve(process.cwd(), '.gitdocrc.json');
+    if (existsSync(localConfigPath)) {
+      try {
+        const localConfigContent = readFileSync(localConfigPath, 'utf-8');
+        const localRules = JSON.parse(localConfigContent);
+        rules = deepMerge(rules, localRules);
+      } catch (err) {
+        console.error(pc.red(`Error al cargar el archivo de configuración .gitdocrc.json: ${err.message}`));
+        process.exit(1);
+      }
+    }
 
     const parsedCommits = await runPipeline(tipo, options, rules);
 
@@ -54,16 +68,21 @@ export async function runGenerate(tipo, options = {}) {
     }
 
     // Render document (applies grouping + Handlebars)
-    const scopeFilter = options.scope || undefined;
-    const markdown = await renderDocument(parsedCommits, tipo, scopeFilter);
+    const markdown = await renderDocument(parsedCommits, tipo, {
+      scope: options.scope || undefined,
+      template: options.template || undefined,
+      verbose: options.verbose || false,
+    });
 
     if (options.dryRun) {
       process.stdout.write(pc.yellow('⚠  Modo simulación (--dry-run): no se escribirán archivos físicos.\n\n'));
       process.stdout.write(markdown);
     } else {
-      const outputPath = resolve(process.cwd(), OUTPUT_FILES[tipo]);
+      const outputPath = resolve(process.cwd(), options.output || OUTPUT_FILES[tipo]);
+      const outputDir = dirname(outputPath);
+      await mkdir(outputDir, { recursive: true });
       await writeFile(outputPath, markdown, 'utf-8');
-      console.log(pc.green(`✅ Documento generado: ${OUTPUT_FILES[tipo]}`));
+      console.log(pc.green(`✅ Documento generado: ${options.output || OUTPUT_FILES[tipo]}`));
     }
   } catch (error) {
     console.error(pc.red(`Error: ${error.message}`));

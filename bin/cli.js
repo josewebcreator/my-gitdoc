@@ -17,6 +17,9 @@ program
   .option('--to <tag/commit/hash>', 'Ending tag, commit hash, or branch')
   .option('--scope <nombre>', 'Isolate documentation to a single module')
   .option('--dry-run', 'Test output in console without modifying physical files')
+  .option('-o, --output <ruta>', 'Ruta de salida del archivo generado')
+  .option('-t, --template <ruta>', 'Ruta de plantilla Handlebars (.hbs)')
+  .option('-v, --verbose', 'Activar modo verboso')
   .action(runGenerate);
 
 program.parse(process.argv);

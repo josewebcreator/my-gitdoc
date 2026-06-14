@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { lintCommit } from '../../src/linter.js';
+import { lintCommit, deepMerge } from '../../src/linter.js';
 
 // Default rules matching config/rules.json structure
 const rules = {
@@ -58,4 +58,31 @@ test('lintCommit - múltiples errores simultáneos', () => {
   const result = lintCommit({ type: null, scope: null, subject: null, body: null, notes: [] }, rules);
   assert.strictEqual(result.valid, false);
   assert.ok(result.errors.length >= 2, 'Debe reportar al menos 2 errores (type y subject faltantes)');
+});
+
+test('deepMerge - mezcla recursiva correcta de reglas de configuración', () => {
+  const baseRules = {
+    allowedTypes: ['feat', 'fix'],
+    requiredFields: ['type'],
+    forbiddenTerms: {
+      'fraude': 'riesgoso',
+      'hack': 'mitigación'
+    }
+  };
+
+  const customRules = {
+    allowedTypes: ['feat', 'fix', 'docs'],
+    forbiddenTerms: {
+      'hack': 'seguridad',
+      'temporal': 'ajuste'
+    }
+  };
+
+  const merged = deepMerge(baseRules, customRules);
+
+  assert.deepStrictEqual(merged.allowedTypes, ['feat', 'fix', 'docs'], 'Debe sobrescribir arreglos');
+  assert.deepStrictEqual(merged.requiredFields, ['type'], 'Debe mantener propiedades base que no se sobrescriben');
+  assert.strictEqual(merged.forbiddenTerms.fraude, 'riesgoso', 'Debe mantener claves de diccionario base');
+  assert.strictEqual(merged.forbiddenTerms.hack, 'seguridad', 'Debe sobrescribir claves de diccionario existentes');
+  assert.strictEqual(merged.forbiddenTerms.temporal, 'ajuste', 'Debe agregar nuevas claves al diccionario');
 });

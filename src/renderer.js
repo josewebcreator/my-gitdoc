@@ -17,19 +17,31 @@ const TYPE_TITLES = {
   fix:      'Correcciones de Bugs',
   perf:     'Mejoras de Rendimiento',
   refactor: 'Refactorizaciones',
+  docs:     'Documentación',
+  style:    'Estilos',
+  test:     'Pruebas',
+  build:    'Compilación',
+  ci:       'Integración Continua',
+  chore:    'Otros Cambios',
+  revert:   'Reversiones',
 };
 
 /**
  * Agrupa commits para el reporte Changelog.
- * Filtra por feat | fix | perf | refactor y aisla breaking changes.
+ * Filtra por feat | fix | perf | refactor y opcionalmente otros tipos en modo verboso.
  *
  * @param {object[]} commits  - Commits parseados por parseCommit()
  * @param {string|undefined} scopeFilter - Scope a filtrar (flag --scope)
+ * @param {boolean} verbose - Indica si se incluye verbosidad y otros tipos
  * @returns {{ breakingChanges: object[], sections: { title: string, commits: object[] }[] }}
  */
-export function groupForChangelog(commits, scopeFilter) {
+export function groupForChangelog(commits, scopeFilter, verbose = false) {
+  const allowedTypes = verbose
+    ? new Set(['feat', 'fix', 'perf', 'refactor', 'docs', 'style', 'test', 'build', 'ci', 'chore', 'revert'])
+    : CHANGELOG_TYPES;
+
   const filtered = commits.filter(c => {
-    if (!CHANGELOG_TYPES.has(c.type)) return false;
+    if (!allowedTypes.has(c.type)) return false;
     if (scopeFilter && c.scope !== scopeFilter) return false;
     return true;
   });
@@ -49,7 +61,7 @@ export function groupForChangelog(commits, scopeFilter) {
     }
 
     // Siempre añadir a su sección de tipo (incluso si es breaking change)
-    const title = TYPE_TITLES[commit.type] || commit.type;
+    const title = TYPE_TITLES[commit.type] || (commit.type ? commit.type.charAt(0).toUpperCase() + commit.type.slice(1) : 'Otros');
     if (!sectionMap.has(commit.type)) {
       sectionMap.set(commit.type, { title, commits: [] });
     }
@@ -57,8 +69,16 @@ export function groupForChangelog(commits, scopeFilter) {
   }
 
   // Orden canónico de secciones
-  const orderedTypes = ['feat', 'fix', 'perf', 'refactor'];
-  const sections = orderedTypes
+  const orderedTypes = verbose
+    ? ['feat', 'fix', 'perf', 'refactor', 'docs', 'style', 'test', 'build', 'ci', 'chore', 'revert']
+    : ['feat', 'fix', 'perf', 'refactor'];
+
+  const allOrderedTypes = [
+    ...orderedTypes,
+    ...Array.from(sectionMap.keys()).filter(t => !orderedTypes.includes(t))
+  ];
+
+  const sections = allOrderedTypes
     .filter(t => sectionMap.has(t))
     .map(t => sectionMap.get(t));
 
@@ -99,10 +119,13 @@ export function groupForPap(commits, scopeFilter) {
  * Carga de forma asíncrona la plantilla .hbs correspondiente al tipo.
  *
  * @param {'changelog'|'pap'} tipo
+ * @param {string|undefined} customTemplatePath - Ruta de plantilla personalizada
  * @returns {Promise<string>} Contenido raw de la plantilla
  */
-export async function loadTemplate(tipo) {
-  const templatePath = resolve(__dirname, '..', 'templates', `${tipo}.hbs`);
+export async function loadTemplate(tipo, customTemplatePath) {
+  const templatePath = customTemplatePath
+    ? resolve(process.cwd(), customTemplatePath)
+    : resolve(__dirname, '..', 'templates', `${tipo}.hbs`);
   return readFile(templatePath, 'utf-8');
 }
 
@@ -111,18 +134,36 @@ export async function loadTemplate(tipo) {
  *
  * @param {object[]} commits     - Commits parseados y validados
  * @param {'changelog'|'pap'} tipo
- * @param {string|undefined} scopeFilter
+ * @param {object|string|undefined} optionsOrScope - Objeto de opciones o filtro de scope (compatibilidad)
  * @returns {Promise<string>} Markdown renderizado listo para escribir o imprimir
  */
-export async function renderDocument(commits, tipo, scopeFilter) {
-  const templateContent = await loadTemplate(tipo);
+export async function renderDocument(commits, tipo, optionsOrScope) {
+  let scopeFilter;
+  let templatePath;
+  let verbose = false;
+
+  if (optionsOrScope && typeof optionsOrScope === 'object') {
+    scopeFilter = optionsOrScope.scope;
+    templatePath = optionsOrScope.template;
+    verbose = !!optionsOrScope.verbose;
+  } else {
+    scopeFilter = optionsOrScope;
+  }
+
+  // Inyectar verbose flag en cada commit para simplificar plantillas
+  const commitsWithVerbose = commits.map(c => ({
+    ...c,
+    verbose
+  }));
+
+  const templateContent = await loadTemplate(tipo, templatePath);
   const template = Handlebars.compile(templateContent);
 
   let data;
   if (tipo === 'changelog') {
-    data = groupForChangelog(commits, scopeFilter);
+    data = groupForChangelog(commitsWithVerbose, scopeFilter, verbose);
   } else {
-    data = groupForPap(commits, scopeFilter);
+    data = groupForPap(commitsWithVerbose, scopeFilter);
   }
 
   return template(data);

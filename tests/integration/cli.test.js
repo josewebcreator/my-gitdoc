@@ -82,3 +82,63 @@ test('CLI - should succeed and output Markdown when --dry-run is passed', async 
   // No debe intentar parsear como JSON — el contrato cambió en hito 4
 });
 
+test('CLI - should respect local .gitdocrc.json and merge rules', async () => {
+  const localConfigPath = path.resolve(process.cwd(), '.gitdocrc.json');
+  // Write a configuration where "feat" is forbidden to trigger lint failure
+  const testRules = {
+    forbiddenTerms: {
+      "feat": "something_else"
+    }
+  };
+  fs.writeFileSync(localConfigPath, JSON.stringify(testRules), 'utf-8');
+
+  try {
+    const { code, stderr } = await runCli('generate changelog');
+    // It should fail because there is at least one "feat" commit in the repository
+    assert.strictEqual(code, 1, 'Exit code should be 1 due to lint violation');
+    assert.ok(stderr.includes('El commit contiene el término prohibido "feat"'), 'Should report forbidden term "feat"');
+  } finally {
+    try { fs.unlinkSync(localConfigPath); } catch {}
+  }
+});
+
+test('CLI - should support --output and create intermediate directories', async () => {
+  const customOutputDir = path.resolve(process.cwd(), 'tests/tmp-out-dir/subdir');
+  const customOutputPath = path.resolve(customOutputDir, 'TEST_OUTPUT.md');
+  
+  // Cleanup any left-overs
+  try { fs.unlinkSync(customOutputPath); } catch {}
+  try { fs.rmdirSync(customOutputDir); } catch {}
+
+  try {
+    const { code, stdout } = await runCli(`generate changelog -o tests/tmp-out-dir/subdir/TEST_OUTPUT.md`);
+    assert.strictEqual(code, 0, 'Exit code should be 0');
+    assert.ok(fs.existsSync(customOutputPath), 'Output file should exist');
+    
+    const content = fs.readFileSync(customOutputPath, 'utf-8');
+    assert.ok(content.includes('# CHANGELOG'), 'File content should be changelog');
+  } finally {
+    try { fs.unlinkSync(customOutputPath); } catch {}
+    try { fs.rmSync(path.resolve(process.cwd(), 'tests/tmp-out-dir'), { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('CLI - should support --template', async () => {
+  const tempTemplatePath = path.resolve(process.cwd(), 'tests/tmp-template.hbs');
+  fs.writeFileSync(tempTemplatePath, 'CUSTOM TEMPLATE: {{#each sections}}{{title}}{{/each}}', 'utf-8');
+
+  try {
+    const { code, stdout } = await runCli(`generate changelog -t tests/tmp-template.hbs --dry-run`);
+    assert.strictEqual(code, 0, 'Exit code should be 0');
+    assert.ok(stdout.includes('CUSTOM TEMPLATE:'), 'Output should render using the custom template');
+  } finally {
+    try { fs.unlinkSync(tempTemplatePath); } catch {}
+  }
+});
+
+test('CLI - should support --verbose', async () => {
+  const { code, stdout } = await runCli('generate changelog -v --dry-run');
+  assert.strictEqual(code, 0, 'Exit code should be 0');
+  assert.ok(stdout.includes('# CHANGELOG'), 'Output should contain changelog');
+});
+

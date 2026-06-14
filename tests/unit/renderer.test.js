@@ -170,3 +170,43 @@ test('renderDocument changelog - breaking changes aparecen en el markdown', asyn
   assert.ok(md.includes('Breaking Changes'), 'debe incluir sección de Breaking Changes');
   assert.ok(md.includes('remove old API'),   'debe incluir el subject del commit');
 });
+
+test('renderDocument changelog - inyecta el body de los commits en modo verboso', async () => {
+  const commits = [
+    makeCommit({
+      hash: 'v123',
+      type: 'feat',
+      subject: 'add support for verbose mode',
+      body: 'This is the detailed explanation of how verbose mode works.'
+    })
+  ];
+
+  // Test with verbose active
+  const mdVerbose = await renderDocument(commits, 'changelog', { verbose: true });
+  assert.ok(mdVerbose.includes('> This is the detailed explanation of how verbose mode works.'), 'Debe incluir el body en formato de cita');
+
+  // Test with verbose inactive
+  const mdSilent = await renderDocument(commits, 'changelog', { verbose: false });
+  assert.ok(!mdSilent.includes('> This is the detailed explanation of how verbose mode works.'), 'No debe incluir el body');
+});
+
+test('renderDocument changelog - incluye commits poco relevantes en modo verboso', async () => {
+  const commits = [
+    makeCommit({ hash: 'c1', type: 'chore', subject: 'update npm run script', body: 'some chore details' }),
+    makeCommit({ hash: 'd1', type: 'docs', subject: 'improve documentation layout', body: 'some docs details' })
+  ];
+
+  // In verbose mode, chore and docs must be present
+  const mdVerbose = await renderDocument(commits, 'changelog', { verbose: true });
+  assert.ok(mdVerbose.includes('Otros Cambios'), 'Debe incluir sección chore ("Otros Cambios")');
+  assert.ok(mdVerbose.includes('Documentación'), 'Debe incluir sección docs ("Documentación")');
+  assert.ok(mdVerbose.includes('update npm run script'), 'Debe incluir el commit chore');
+  assert.ok(mdVerbose.includes('improve documentation layout'), 'Debe incluir el commit docs');
+  assert.ok(mdVerbose.includes('> some chore details'), 'Debe incluir el body del commit chore');
+
+  // In standard mode, chore and docs must NOT be present
+  const mdSilent = await renderDocument(commits, 'changelog', { verbose: false });
+  assert.ok(!mdSilent.includes('Otros Cambios'), 'No debe incluir sección chore');
+  assert.ok(!mdSilent.includes('Documentación'), 'No debe incluir sección docs');
+  assert.ok(!mdSilent.includes('update npm run script'), 'No debe incluir el commit chore');
+});
