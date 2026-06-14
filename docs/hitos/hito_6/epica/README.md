@@ -10,9 +10,11 @@ Esta épica agrupa las tareas técnicas de soporte para configuración por proye
 ---
 
 ## **Tareas de Desarrollo**
-*   [ ] Modificar la inicialización del CLI para leer y parsear el archivo `.gitdocrc.json` si se encuentra en la raíz del proyecto.
-*   [ ] Implementar la función de mezcla recursiva para unificar `config/rules.json` y el `.gitdocrc.json` del usuario.
-*   [ ] Añadir las opciones de CLI `--output <ruta>`, `--template <ruta>` y `--verbose` en `bin/cli.js`.
-*   [ ] Actualizar `renderer.js` para usar la ruta del template suministrado si está presente en las opciones de renderizado.
-*   [ ] Modificar el renderizador y las plantillas predeterminadas de Changelog para inyectar y dar formato al campo `body` si la opción `verbose` está activa.
-*   [ ] Desarrollar pruebas unitarias en `tests/unit/renderer.test.js` que verifiquen que el `body` aparece en la salida con `--verbose`.
+*   [x] Modificar la inicialización del CLI para leer y parsear el archivo `.gitdocrc.json` si se encuentra en la raíz del proyecto.
+*   [x] Implementar la función de mezcla recursiva `deepMerge` para unificar `config/rules.json` y el `.gitdocrc.json` del usuario.
+*   [x] Añadir las opciones de CLI `--output <ruta>`, `--template <ruta>` y `--verbose` en `bin/cli.js`.
+*   [x] Actualizar `renderer.js` para usar la ruta del template suministrado si está presente en las opciones de renderizado.
+*   [x] Modificar el renderizador y las plantillas predeterminadas de Changelog para inyectar y dar formato al campo `body` si la opción `verbose` está activa.
+*   [x] Desarrollar pruebas unitarias en `tests/unit/renderer.test.js` que verifiquen que el `body` aparece en la salida con `--verbose`.
+
+> **Commit:** `feat(cli): implementar hito 6 personalizacion, rutas flexibles y verbosidad`
