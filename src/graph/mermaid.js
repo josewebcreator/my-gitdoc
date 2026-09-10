@@ -78,6 +78,8 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
   const baseCommits = (baseBranchObj?.commits || []).slice().reverse(); // De más antiguo a más reciente
   const visitedCommits = new Set();
   const createdBranches = new Set([baseBranch, safeBaseBranch]);
+  const branchEmittedCommits = new Map();
+  branchEmittedCommits.set(safeBaseBranch, 0);
   let currentActiveBranch = safeBaseBranch;
 
   // Mapa de forkPoints: qué ramas parten de cada commit hash
@@ -116,13 +118,15 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
     if (mergedHere && mergedHere.length > 0) {
       for (const mergedBranch of mergedHere) {
         const safeBranch = sanitizeBranchName(mergedBranch.name);
-        if (createdBranches.has(safeBranch)) {
+        // Solo fusionar si la rama fue creada y tiene commits propios emitidos (evita error 'same head')
+        if (createdBranches.has(safeBranch) && (branchEmittedCommits.get(safeBranch) || 0) > 0) {
           if (currentActiveBranch !== safeBaseBranch) {
             lines.push(`    checkout ${safeBaseBranch}`);
             currentActiveBranch = safeBaseBranch;
           }
           lines.push(`    merge ${safeBranch} id: "${shortHash}: Merge ${safeBranch}"`);
           visitedCommits.add(c.hash);
+          branchEmittedCommits.set(safeBaseBranch, (branchEmittedCommits.get(safeBaseBranch) || 0) + 1);
         }
       }
     }
@@ -134,6 +138,7 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
       }
       lines.push(`    commit id: "${label}"`);
       visitedCommits.add(c.hash);
+      branchEmittedCommits.set(safeBaseBranch, (branchEmittedCommits.get(safeBaseBranch) || 0) + 1);
     }
 
     // Si ramas parten de este commit
@@ -142,15 +147,6 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
       for (const fb of forkingBranches) {
         const safeBranch = sanitizeBranchName(fb.name);
         if (!createdBranches.has(safeBranch)) {
-          if (currentActiveBranch !== safeBaseBranch) {
-            lines.push(`    checkout ${safeBaseBranch}`);
-            currentActiveBranch = safeBaseBranch;
-          }
-          lines.push(`    branch ${safeBranch}`);
-          lines.push(`    checkout ${safeBranch}`);
-          createdBranches.add(safeBranch);
-          currentActiveBranch = safeBranch;
-
           // Commits propios de la rama
           const branchCommits = [
             ...(fb.mergedCommits || []),
@@ -159,18 +155,35 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
 
           // Ordenar cronológicamente ascendente
           branchCommits.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          const unvisitedCommits = branchCommits.filter(bc => !visitedCommits.has(bc.hash));
 
-          if (branchCommits.length === 0) {
-            lines.push(`    commit id: "${safeBranch}-start"`);
+          // Si la rama ya está fusionada y todos sus commits ya fueron renderizados, no crear rama vacía
+          if (fb.status === 'merged' && unvisitedCommits.length === 0) {
+            continue;
+          }
+
+          if (currentActiveBranch !== safeBaseBranch) {
+            lines.push(`    checkout ${safeBaseBranch}`);
+            currentActiveBranch = safeBaseBranch;
+          }
+          lines.push(`    branch ${safeBranch}`);
+          lines.push(`    checkout ${safeBranch}`);
+          createdBranches.add(safeBranch);
+          currentActiveBranch = safeBranch;
+          branchEmittedCommits.set(safeBranch, 0);
+
+          if (unvisitedCommits.length === 0) {
+            lines.push(`    commit id: "${safeBranch}-head"`);
+            branchEmittedCommits.set(safeBranch, 1);
           } else {
-            for (const bc of branchCommits) {
-              if (visitedCommits.has(bc.hash)) continue;
+            for (const bc of unvisitedCommits) {
               const bShort = bc.hash ? bc.hash.substring(0, 7) : 'commit';
               const bAuthor = bc.author ? sanitizeMermaidText(bc.author.split(' ')[0]) : '';
               const bSub = sanitizeCommitSubject(bc.subject || '', 40);
               const bLabel = bAuthor ? `${bShort}: ${bAuthor} - ${bSub}` : `${bShort}: ${bSub}`;
               lines.push(`    commit id: "${bLabel}"`);
               visitedCommits.add(bc.hash);
+              branchEmittedCommits.set(safeBranch, (branchEmittedCommits.get(safeBranch) || 0) + 1);
             }
           }
         }
@@ -182,6 +195,18 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
   for (const b of nonBaseBranches) {
     const safeBranch = sanitizeBranchName(b.name);
     if (!createdBranches.has(safeBranch)) {
+      const branchCommits = [
+        ...(b.mergedCommits || []),
+        ...(b.unmergedCommits || []),
+      ];
+      branchCommits.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      const unvisitedCommits = branchCommits.filter(bc => !visitedCommits.has(bc.hash));
+
+      // Si la rama ya está fusionada y no tiene commits nuevos, está totalmente absorbida en la base
+      if (b.status === 'merged' && unvisitedCommits.length === 0) {
+        continue;
+      }
+
       if (currentActiveBranch !== safeBaseBranch) {
         lines.push(`    checkout ${safeBaseBranch}`);
         currentActiveBranch = safeBaseBranch;
@@ -190,28 +215,25 @@ export function buildDetailedGitGraph(topologyData, options = {}) {
       lines.push(`    checkout ${safeBranch}`);
       createdBranches.add(safeBranch);
       currentActiveBranch = safeBranch;
+      branchEmittedCommits.set(safeBranch, 0);
 
-      const branchCommits = [
-        ...(b.mergedCommits || []),
-        ...(b.unmergedCommits || []),
-      ];
-      branchCommits.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-      if (branchCommits.length === 0) {
-        lines.push(`    commit id: "${safeBranch}-start"`);
+      if (unvisitedCommits.length === 0) {
+        lines.push(`    commit id: "${safeBranch}-head"`);
+        branchEmittedCommits.set(safeBranch, 1);
       } else {
-        for (const bc of branchCommits) {
-          if (visitedCommits.has(bc.hash)) continue;
+        for (const bc of unvisitedCommits) {
           const bShort = bc.hash ? bc.hash.substring(0, 7) : 'commit';
           const bAuthor = bc.author ? sanitizeMermaidText(bc.author.split(' ')[0]) : '';
           const bSub = sanitizeCommitSubject(bc.subject || '', 40);
           const bLabel = bAuthor ? `${bShort}: ${bAuthor} - ${bSub}` : `${bShort}: ${bSub}`;
           lines.push(`    commit id: "${bLabel}"`);
           visitedCommits.add(bc.hash);
+          branchEmittedCommits.set(safeBranch, (branchEmittedCommits.get(safeBranch) || 0) + 1);
         }
       }
 
-      if (b.status === 'merged') {
+      // Solo fusionar si la rama tiene al menos 1 commit propio emitido
+      if (b.status === 'merged' && (branchEmittedCommits.get(safeBranch) || 0) > 0) {
         lines.push(`    checkout ${safeBaseBranch}`);
         lines.push(`    merge ${safeBranch}`);
         currentActiveBranch = safeBaseBranch;
