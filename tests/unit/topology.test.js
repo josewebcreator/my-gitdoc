@@ -197,4 +197,9 @@ test('analyzeTopologyData - Scenario: Acotación temporal por fecha (--since y -
   const resultUntil = analyzeTopologyData(branches, commits, { until: '2025-12-31T23:59:59Z' });
   assert.strictEqual(resultUntil.branches[0].commits.length, 1);
   assert.strictEqual(resultUntil.branches[0].commits[0].hash, 'c1');
+
+  // Verifica que un formato YYYY-MM-DD sin hora sea inclusivo de todo el día
+  const resultUntilDay = analyzeTopologyData(branches, commits, { until: '2026-01-01' });
+  assert.strictEqual(resultUntilDay.branches[0].commits.length, 2);
 });
+

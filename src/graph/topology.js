@@ -452,7 +452,11 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
 
   // Filtro --since
   if (options.since) {
-    const sinceDate = new Date(options.since);
+    let rawSince = String(options.since).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawSince)) {
+      rawSince += 'T00:00:00.000Z';
+    }
+    const sinceDate = new Date(rawSince);
     if (isNaN(sinceDate.getTime())) {
       throw new Error(t('topology.errors.invalidDate', { date: options.since }));
     }
@@ -463,7 +467,11 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
 
   // Filtro --until
   if (options.until) {
-    const untilDate = new Date(options.until);
+    let rawUntil = String(options.until).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawUntil)) {
+      rawUntil += 'T23:59:59.999Z';
+    }
+    const untilDate = new Date(rawUntil);
     if (isNaN(untilDate.getTime())) {
       throw new Error(t('topology.errors.invalidDate', { date: options.until }));
     }
@@ -509,7 +517,10 @@ export async function extractTopology(options = {}) {
 
   const refs = options.from && options.to ? [`${options.from}..${options.to}`] : ['--all'];
 
-  for await (const c of getCommitsDag(refs, options)) {
+  // Para construir el grafo topológico y resolver ancestros, fork points y merges fielmente,
+  // se extrae el grafo completo de Git y los filtros de rama, autor y fecha se aplican sobre la topología.
+  const gitOptions = { cwd: options.cwd };
+  for await (const c of getCommitsDag(refs, gitOptions)) {
     commitsList.push(c);
   }
 
