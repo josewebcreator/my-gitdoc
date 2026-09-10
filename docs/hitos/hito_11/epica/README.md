@@ -42,22 +42,22 @@ Hasta la Fase 2, `git.js` implementaba un extractor lineal basado en `git log` q
 ## 2. Tasks & Implementation Checklist
 
 ### 1. Extensión de Primitivas Git
-- [ ] 1.1 Añadir en `src/git.js` función `getAllBranches()` que devuelva nombres limpios y hashes HEAD de todas las ramas locales y remotas.
-- [ ] 1.2 Añadir en `src/git.js` función `getMergeBase(refA, refB)` para resolver ancestros comunes mediante `git merge-base`.
-- [ ] 1.3 Implementar consulta optimizada por stream con delimitadores de bytes nulos (`\x00`) para extracción de commits y padres.
+- [x] 1.1 Añadir en `src/git.js` función `getAllBranches()` que devuelva nombres limpios y hashes HEAD de todas las ramas locales y remotas.
+- [x] 1.2 Añadir en `src/git.js` función `getMergeBase(refA, refB)` para resolver ancestros comunes mediante `git merge-base`.
+- [x] 1.3 Implementar consulta optimizada por stream con delimitadores de bytes nulos (`\x00`) para extracción de commits y padres.
 
 ### 2. Motor de Topología de Ramas (`src/graph/topology.js`)
-- [ ] 2.1 Crear algoritmo constructor del DAG asociando cada commit con su lista de hashes padres.
-- [ ] 2.2 Implementar detección de rama base automática (`main` / `master` / `develop` / HEAD).
-- [ ] 2.3 Identificar para cada rama su punto de divergencia (*fork point*) respecto a la rama base.
-- [ ] 2.4 Clasificar commits de merge y etiquetar estado de cada rama (`active`, `merged`, `diverged`).
+- [x] 2.1 Crear algoritmo constructor del DAG asociando cada commit con su lista de hashes padres.
+- [x] 2.2 Implementar detección de rama base automática (`main` / `master` / `develop` / HEAD).
+- [x] 2.3 Identificar para cada rama su punto de divergencia (*fork point*) respecto a la rama base.
+- [x] 2.4 Clasificar commits de merge y etiquetar estado de cada rama (`active`, `merged`, `diverged`).
 
 ### 3. Métricas y Atribución de Colaboradores (`src/graph/collaborators.js`)
-- [ ] 3.1 Agrupar commits por rama y calcular estadísticas de colaboradores (nombre, email, conteo de commits).
-- [ ] 3.2 Extraer y mapear rangos de fechas de actividad por autor en cada rama.
-- [ ] 3.3 Parsear Conventional Commits de cada autor para extraer scopes y tipos predominantes trabajados.
+- [x] 3.1 Agrupar commits por rama y calcular estadísticas de colaboradores (nombre, email, conteo de commits).
+- [x] 3.2 Extraer y mapear rangos de fechas de actividad por autor en cada rama.
+- [x] 3.3 Parsear Conventional Commits de cada autor para extraer scopes y tipos predominantes trabajados.
 
 ### 4. Filtros y Pruebas Unitarias
-- [ ] 4.1 Implementar lógica de filtrado por `--branch`, `--author`, `--since`, `--until` sobre la estructura topológica.
-- [ ] 4.2 Crear `tests/unit/topology.test.js` con un repositorio Git de prueba (*fixture*) con múltiples ramas y merges.
-- [ ] 4.3 Medir tiempo de ejecución y consumo de memoria para certificar el cumplimiento de **RNF-7**.
+- [x] 4.1 Implementar lógica de filtrado por `--branch`, `--author`, `--since`, `--until` sobre la estructura topológica.
+- [x] 4.2 Crear `tests/unit/topology.test.js` con un repositorio Git de prueba (*fixture*) con múltiples ramas y merges.
+- [x] 4.3 Medir tiempo de ejecución y consumo de memoria para certificar el cumplimiento de **RNF-7**.
