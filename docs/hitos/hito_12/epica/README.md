@@ -40,22 +40,22 @@ Una vez construida la estructura topológica en memoria (Hito 11), es necesario 
 ## 2. Tasks & Implementation Checklist
 
 ### 1. Compilador de Sintaxis Mermaid (`src/graph/mermaid.js`)
-- [ ] 1.1 Implementar función `buildDetailedGitGraph(topologyData)` usando sintaxis `gitGraph`.
-- [ ] 1.2 Implementar función `buildSimplifiedFlowchart(topologyData)` usando sintaxis `flowchart LR` con colaboradores por rama.
-- [ ] 1.3 Desarrollar función de sanitización y escape seguro de caracteres para etiquetas y mensajes.
-- [ ] 1.4 Generar tablas Markdown de resumen de colaboradores ordenadas por volumen de commits.
+- [x] 1.1 Implementar función `buildDetailedGitGraph(topologyData)` usando sintaxis `gitGraph`.
+- [x] 1.2 Implementar función `buildSimplifiedFlowchart(topologyData)` usando sintaxis `flowchart LR` con colaboradores por rama.
+- [x] 1.3 Desarrollar función de sanitización y escape seguro de caracteres para etiquetas y mensajes.
+- [x] 1.4 Generar tablas Markdown de resumen de colaboradores ordenadas por volumen de commits.
 
 ### 2. Plantilla y Renderizador (`templates/graph.hbs` y `src/renderer.js`)
-- [ ] 2.1 Crear plantilla Handlebars `templates/graph.hbs` con soporte de internacionalización para títulos y encabezados de tabla.
-- [ ] 2.2 Integrar el tipo `graph` en `renderDocument()` en `src/renderer.js` admitiendo la opción `simplified: boolean`.
-- [ ] 2.3 Conectar autolinking remoto (`generateRemoteLinks`) para que los hashes de las tablas enlacen al repositorio web.
+- [x] 2.1 Crear plantilla Handlebars `templates/graph.hbs` con soporte de internacionalización para títulos y encabezados de tabla.
+- [x] 2.2 Integrar el tipo `graph` en `renderDocument()` en `src/renderer.js` admitiendo la opción `simplified: boolean`.
+- [x] 2.3 Conectar autolinking remoto (`generateRemoteLinks`) para que los hashes de las tablas enlacen al repositorio web.
 
 ### 3. Previsualizador de Terminal (`src/graph/terminal.js`)
-- [ ] 3.1 Implementar formateador de árbol en consola usando caracteres Unicode tipo `tree`.
-- [ ] 3.2 Aplicar colores con `picocolors` para distinguir ramas activas (verde), fusionadas (cian) y divergentes (amarillo).
-- [ ] 3.3 Mostrar autores y conteo de commits entre paréntesis junto a cada rama.
+- [x] 3.1 Implementar formateador de árbol en consola usando caracteres Unicode tipo `tree`.
+- [x] 3.2 Aplicar colores con `picocolors` para distinguir ramas activas (verde), fusionadas (cian) y divergentes (amarillo).
+- [x] 3.3 Mostrar autores y conteo de commits entre paréntesis junto a cada rama.
 
 ### 4. Pruebas Unitarias
-- [ ] 4.1 Crear `tests/unit/mermaid.test.js` verificando que la sintaxis generada no contenga caracteres inválidos.
-- [ ] 4.2 Probar escenarios con nombres de ramas complejos (barras, guiones, tildes y comillas).
-- [ ] 4.3 Validar que `--simplified` genere diagramas legibles y compactos.
+- [x] 4.1 Crear `tests/unit/mermaid.test.js` verificando que la sintaxis generada no contenga caracteres inválidos.
+- [x] 4.2 Probar escenarios con nombres de ramas complejos (barras, guiones, tildes y comillas).
+- [x] 4.3 Validar que `--simplified` genere diagramas legibles y compactos.
