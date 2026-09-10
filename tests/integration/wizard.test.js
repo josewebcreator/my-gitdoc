@@ -64,7 +64,7 @@ test('wizard init — crea .gitdocrc.json con los valores proporcionados', async
   try {
     const prompts = {
       input: (opts) => {
-        if (opts.message.includes('URL remota')) return Promise.resolve('https://github.com/test/repo');
+        if (opts.message.includes('URL remota') || opts.message.includes('Remote repository')) return Promise.resolve('https://github.com/test/repo');
         return Promise.resolve(''); // scopes vacío
       },
       checkbox: mockCheckbox(['feat', 'fix', 'refactor']),
@@ -165,16 +165,16 @@ test('wizard generate — dry-run imprime Markdown en stdout sin escribir archiv
     // Forzamos flujo donde no hay scopes para probar el rama de _input
     const prompts = {
       select: (opts) => {
-        if (opts.message.includes('tipo de documento')) return Promise.resolve('changelog');
-        if (opts.message.includes('inicio')) return Promise.resolve(''); // sin from
-        if (opts.message.includes('fin')) return Promise.resolve('HEAD'); // to=HEAD
-        if (opts.message.includes('scope')) return Promise.resolve(''); // sin filtro
+        if (opts.message.includes('tipo de documento') || opts.message.includes('document type') || opts.message.includes('Document type')) return Promise.resolve('changelog');
+        if (opts.message.includes('inicio') || opts.message.includes('Starting') || opts.message.includes('from')) return Promise.resolve(''); // sin from
+        if (opts.message.includes('fin') || opts.message.includes('Ending') || opts.message.includes('to')) return Promise.resolve('HEAD'); // to=HEAD
+        if (opts.message.includes('scope') || opts.message.includes('Scope')) return Promise.resolve(''); // sin filtro
         return Promise.resolve(opts.choices?.[0]?.value ?? '');
       },
       input: mockInput(''),     // scope manual vacío
       confirm: (opts) => {
         if (opts.message.includes('dry-run')) return Promise.resolve(true);   // dry-run sí
-        if (opts.message.includes('verboso'))  return Promise.resolve(false);  // verbose no
+        if (opts.message.includes('verboso') || opts.message.includes('verbose') || opts.message.includes('Verbose'))  return Promise.resolve(false);  // verbose no
         return Promise.resolve(true);
       },
     };
@@ -223,19 +223,19 @@ test('wizard generate — persistir escribe el archivo de salida', async () => {
     try {
       const prompts = {
         select: (opts) => {
-          if (opts.message.includes('tipo de documento')) return Promise.resolve('changelog');
-          if (opts.message.includes('inicio')) return Promise.resolve(''); // sin from
-          if (opts.message.includes('fin')) return Promise.resolve('HEAD');
-          if (opts.message.includes('scope')) return Promise.resolve('');
+          if (opts.message.includes('tipo de documento') || opts.message.includes('document type') || opts.message.includes('Document type')) return Promise.resolve('changelog');
+          if (opts.message.includes('inicio') || opts.message.includes('Starting') || opts.message.includes('from')) return Promise.resolve(''); // sin from
+          if (opts.message.includes('fin') || opts.message.includes('Ending') || opts.message.includes('to')) return Promise.resolve('HEAD');
+          if (opts.message.includes('scope') || opts.message.includes('Scope')) return Promise.resolve('');
           return Promise.resolve(opts.choices?.[0]?.value ?? '');
         },
         input: (opts) => {
-          if (opts.message.includes('Ruta de salida')) return Promise.resolve(outputPath);
+          if (opts.message.includes('Ruta de salida') || opts.message.includes('Output file path') || opts.message.includes('output path')) return Promise.resolve(outputPath);
           return Promise.resolve('');
         },
         confirm: (opts) => {
           if (opts.message.includes('dry-run')) return Promise.resolve(false); // persistir
-          if (opts.message.includes('verboso'))  return Promise.resolve(false);
+          if (opts.message.includes('verboso') || opts.message.includes('verbose') || opts.message.includes('Verbose'))  return Promise.resolve(false);
           return Promise.resolve(false);
         },
       };
@@ -265,16 +265,16 @@ test('wizard generate — persistir escribe el archivo de salida', async () => {
 test('wizard generate — scope vacío incluye todos los commits sin fallar', async () => {
   const prompts = {
     select: (opts) => {
-      if (opts.message.includes('tipo de documento')) return Promise.resolve('changelog');
-      if (opts.message.includes('inicio')) return Promise.resolve('');
-      if (opts.message.includes('fin')) return Promise.resolve('HEAD');
-      if (opts.message.includes('scope')) return Promise.resolve('');
+      if (opts.message.includes('tipo de documento') || opts.message.includes('document type') || opts.message.includes('Document type')) return Promise.resolve('changelog');
+      if (opts.message.includes('inicio') || opts.message.includes('Starting') || opts.message.includes('from')) return Promise.resolve('');
+      if (opts.message.includes('fin') || opts.message.includes('Ending') || opts.message.includes('to')) return Promise.resolve('HEAD');
+      if (opts.message.includes('scope') || opts.message.includes('Scope')) return Promise.resolve('');
       return Promise.resolve(opts.choices?.[0]?.value ?? '');
     },
     input: mockInput(''),
     confirm: (opts) => {
       if (opts.message.includes('dry-run')) return Promise.resolve(true);
-      if (opts.message.includes('verboso'))  return Promise.resolve(false);
+      if (opts.message.includes('verboso') || opts.message.includes('verbose') || opts.message.includes('Verbose'))  return Promise.resolve(false);
       return Promise.resolve(true);
     },
   };
@@ -292,16 +292,16 @@ test('wizard generate — tipo pap en dry-run no escribe archivos', async () => 
 
   const prompts = {
     select: (opts) => {
-      if (opts.message.includes('tipo de documento')) return Promise.resolve('pap');
-      if (opts.message.includes('inicio')) return Promise.resolve('');
-      if (opts.message.includes('fin')) return Promise.resolve('HEAD');
-      if (opts.message.includes('scope')) return Promise.resolve('');
+      if (opts.message.includes('tipo de documento') || opts.message.includes('document type') || opts.message.includes('Document type')) return Promise.resolve('pap');
+      if (opts.message.includes('inicio') || opts.message.includes('Starting') || opts.message.includes('from')) return Promise.resolve('');
+      if (opts.message.includes('fin') || opts.message.includes('Ending') || opts.message.includes('to')) return Promise.resolve('HEAD');
+      if (opts.message.includes('scope') || opts.message.includes('Scope')) return Promise.resolve('');
       return Promise.resolve(opts.choices?.[0]?.value ?? '');
     },
     input: mockInput(''),
     confirm: (opts) => {
       if (opts.message.includes('dry-run')) return Promise.resolve(true);
-      if (opts.message.includes('verboso'))  return Promise.resolve(false);
+      if (opts.message.includes('verboso') || opts.message.includes('verbose') || opts.message.includes('Verbose'))  return Promise.resolve(false);
       return Promise.resolve(true);
     },
   };
