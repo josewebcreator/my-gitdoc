@@ -1,65 +1,136 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
+import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { Command, Help } from 'commander';
 import { runGenerate } from '../src/pipeline.js';
 import { runWizardInit, runWizardGenerate } from '../src/wizard.js';
 import { select } from '@inquirer/prompts';
+import { t, initI18n } from '../src/i18n/index.js';
+
+// Pre-parsear -l o --lang de process.argv antes de configurar Commander
+let cliLang;
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i] === '-l' || process.argv[i] === '--lang') {
+    cliLang = process.argv[i + 1];
+    break;
+  }
+  if (process.argv[i].startsWith('--lang=')) {
+    cliLang = process.argv[i].split('=')[1];
+    break;
+  }
+}
+
+// Cargar .gitdocrc.json si existe para leer locale e i18n
+let localConfig = {};
+const localConfigPath = resolve(process.cwd(), '.gitdocrc.json');
+if (existsSync(localConfigPath)) {
+  try {
+    localConfig = JSON.parse(readFileSync(localConfigPath, 'utf-8'));
+  } catch {}
+}
+
+// Inicializar i18n inmediatamente con la jerarquía completa
+initI18n({
+  lang: cliLang,
+  configLocale: localConfig.locale,
+  customCatalogs: localConfig.i18n,
+});
 
 const program = new Command();
 
 program
   .name('tu-doc-cli')
-  .description('CLI para generación automática de CHANGELOGs y PAPs basados en commits')
-  .version('1.0.0');
+  .description(t('cli.description'))
+  .version('1.0.0', '-V, --version', t('cli.versionOption'))
+  .helpOption('-h, --help', t('cli.helpOption'))
+  .helpCommand(t('cli.helpCommandTerm'), t('cli.helpCommand'))
+  .option(t('cli.langFlag'), t('cli.langOption'));
+
+program.configureHelp({
+  styleTitle: (title) => {
+    const map = {
+      'Usage:': t('cli.headings.usage'),
+      'Arguments:': t('cli.headings.arguments'),
+      'Options:': t('cli.headings.options'),
+      'Commands:': t('cli.headings.commands'),
+    };
+    return map[title] || title;
+  },
+  subcommandTerm: function (cmd) {
+    const term = Help.prototype.subcommandTerm.call(this, cmd);
+    return term.replace('[options]', t('cli.terms.options'));
+  },
+  commandUsage: function (cmd) {
+    const term = Help.prototype.commandUsage.call(this, cmd);
+    return term
+      .replace('[options]', t('cli.terms.options'))
+      .replace('[command]', t('cli.terms.command'));
+  },
+});
 
 program
   .command('generate')
-  .argument('<tipo>', 'Tipo de documento a generar (changelog o pap)')
-  .option('--from <tag/commit/hash>', 'Starting tag, commit hash, or branch')
-  .option('--to <tag/commit/hash>', 'Ending tag, commit hash, or branch')
-  .option('--scope <nombre>', 'Isolate documentation to a single module')
-  .option('--dry-run', 'Test output in console without modifying physical files')
-  .option('-o, --output <ruta>', 'Ruta de salida del archivo generado')
-  .option('-t, --template <ruta>', 'Ruta de plantilla Handlebars (.hbs)')
-  .option('-v, --verbose', 'Activar modo verboso')
-  .action(runGenerate);
+  .description(t('cli.generate.description'))
+  .argument(t('cli.generate.argumentType'), t('cli.generate.argumentTipo'))
+  .option(t('cli.langFlag'), t('cli.langOption'))
+  .option('--from <tag/commit/hash>', t('cli.generate.from'))
+  .option('--to <tag/commit/hash>', t('cli.generate.to'))
+  .option(t('cli.generate.scopeFlag'), t('cli.generate.scope'))
+  .option('--dry-run', t('cli.generate.dryRun'))
+  .option(t('cli.generate.outputFlag'), t('cli.generate.output'))
+  .option(t('cli.generate.templateFlag'), t('cli.generate.template'))
+  .option('-v, --verbose', t('cli.generate.verbose'))
+  .action((tipo, options, cmd) => {
+    const mergedOpts = { ...cmd.optsWithGlobals(), ...options };
+    return runGenerate(tipo, mergedOpts);
+  });
 
 // ---------------------------------------------------------------------------
 // Wizard command
 // ---------------------------------------------------------------------------
 
-const wizard = program.command('wizard').description('Asistente interactivo de configuración y generación de documentación');
+const wizard = program
+  .command('wizard')
+  .description(t('cli.wizard.description'))
+  .option(t('cli.langFlag'), t('cli.langOption'));
 
 wizard
   .command('init')
-  .description('Crear o actualizar el archivo de configuración .gitdocrc.json de forma interactiva')
-  .action(async () => {
-    await runWizardInit();
+  .description(t('cli.wizard.init'))
+  .option(t('cli.langFlag'), t('cli.langOption'))
+  .action(async (_options, cmd) => {
+    const opts = cmd.optsWithGlobals ? cmd.optsWithGlobals() : {};
+    await runWizardInit({}, opts);
   });
 
 wizard
   .command('generate')
-  .description('Guía interactiva para compilar un reporte CHANGELOG o PAP')
-  .action(async () => {
-    await runWizardGenerate();
+  .description(t('cli.wizard.generate'))
+  .option(t('cli.langFlag'), t('cli.langOption'))
+  .action(async (_options, cmd) => {
+    const opts = cmd.optsWithGlobals ? cmd.optsWithGlobals() : {};
+    await runWizardGenerate({}, opts);
   });
 
 // Si se invoca `wizard` sin subcomando, preguntar cuál flujo iniciar
-wizard.action(async () => {
+wizard.action(async (_options, cmd) => {
+  const opts = cmd.optsWithGlobals ? cmd.optsWithGlobals() : {};
+  if (opts.lang) {
+    initI18n({ lang: opts.lang });
+  }
   const flow = await select({
-    message: '¿Qué deseas hacer?',
+    message: t('wizard.main.prompt'),
     choices: [
-      { name: 'Inicializar / actualizar configuración (.gitdocrc.json)', value: 'init' },
-      { name: 'Generar un reporte de documentación (CHANGELOG / PAP)', value: 'generate' },
+      { name: t('wizard.main.initChoice'), value: 'init' },
+      { name: t('wizard.main.generateChoice'), value: 'generate' },
     ],
   });
   if (flow === 'init') {
-    await runWizardInit();
+    await runWizardInit({}, opts);
   } else {
-    await runWizardGenerate();
+    await runWizardGenerate({}, opts);
   }
 });
 
 program.parse(process.argv);
-
-
