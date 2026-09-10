@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { t } from './i18n/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -53,7 +54,7 @@ export function lintCommit(parsedCommit, rules = {}) {
   // 1. Validate required fields
   for (const field of requiredFields) {
     if (!parsedCommit[field]) {
-      errors.push(`Campo obligatorio faltante: "${field}". El commit debe tener un ${field} definido.`);
+      errors.push(t('linter.errors.missingField', { field }));
     }
   }
 
@@ -61,7 +62,10 @@ export function lintCommit(parsedCommit, rules = {}) {
   if (parsedCommit.type && allowedTypes.length > 0) {
     if (!allowedTypes.includes(parsedCommit.type)) {
       errors.push(
-        `Tipo de commit inválido: "${parsedCommit.type}". Tipos permitidos: ${allowedTypes.join(', ')}.`
+        t('linter.errors.invalidType', {
+          type: parsedCommit.type,
+          allowed: allowedTypes.join(', '),
+        })
       );
     }
   }
@@ -73,7 +77,7 @@ export function lintCommit(parsedCommit, rules = {}) {
     for (const text of fieldsToScan) {
       if (pattern.test(text)) {
         errors.push(
-          `El commit contiene el término prohibido "${term}". Sugerencia: use "${suggestion}" en su lugar.`
+          t('linter.errors.forbiddenTerm', { term, suggestion })
         );
         break; // One error per forbidden term is enough
       }
