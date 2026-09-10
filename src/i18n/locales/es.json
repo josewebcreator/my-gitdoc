@@ -26,6 +26,8 @@
       "scope": "Aislar la documentación a un solo módulo",
       "scopeFlag": "--scope <nombre>",
       "dryRun": "Probar la salida en consola sin modificar archivos físicos",
+      "simplified": "Generar diagrama de flujo simplificado de ramas en lugar del grafo detallado commit a commit",
+      "simplifiedFlag": "-s, --simplified",
       "output": "Ruta de salida del archivo generado",
       "outputFlag": "-o, --output <ruta>",
       "template": "Ruta de plantilla Handlebars (.hbs)",
@@ -49,6 +51,10 @@
       "to": "Referencia final de commit (tag, hash o rama)",
       "toFlag": "--to <ref>",
       "json": "Mostrar salida estructurada en formato JSON",
+      "simplified": "Generar diagrama de flujo simplificado de ramas en lugar del grafo detallado commit a commit",
+      "simplifiedFlag": "-s, --simplified",
+      "dryRun": "Previsualizar el árbol de ramas en consola sin modificar archivos físicos",
+      "dryRunFlag": "--dry-run",
       "header": "🌐 Gitdoc — Análisis Topológico y Colaboradores",
       "baseBranch": "📌 Rama Base:",
       "totalBranches": "🌿 Ramas Totales:",
@@ -79,9 +85,28 @@
     "wizard": {
       "description": "Asistente interactivo de configuración y generación de documentación",
       "init": "Crear o actualizar el archivo de configuración .gitdocrc.json de forma interactiva",
-      "generate": "Guía interactiva para compilar un reporte CHANGELOG o PAP",
+      "generate": "Guía interactiva para compilar un reporte CHANGELOG, PAP o GRAPH",
       "topology": "Guía interactiva para el análisis topológico del repositorio y colaboradores"
     }
+  },
+  "graph": {
+    "title": "Grafo de Ramas y Topología Git",
+    "collaboratorsTitle": "Resumen de Colaboradores por Rama",
+    "globalTitle": "Colaboradores Globales",
+    "tableBranch": "Rama",
+    "tableStatus": "Estado",
+    "tableCollaborators": "Colaboradores Principales",
+    "tableCommits": "Commits",
+    "tableTypes": "Tipos de Cambio",
+    "tableScopes": "Scopes",
+    "statusActive": "activa",
+    "statusMerged": "fusionada",
+    "statusDiverged": "divergente",
+    "statusBase": "base",
+    "terminalTitle": "🌱 Gitdoc — Árbol Topológico de Ramas",
+    "unmergedAhead": "{ahead} pendientes",
+    "terminalBase": "rama base",
+    "limitWarning": "⚠ Aviso: El repositorio contiene {count} commits (> 150). Se recomienda utilizar la vista simplificada (--simplified)."
   },
   "sections": {
     "feat": "Nuevas Características",
@@ -109,7 +134,7 @@
   },
   "pipeline": {
     "errors": {
-      "invalidType": "Error: El tipo de documento \"{tipo}\" no es válido. Debe ser \"changelog\" o \"pap\".",
+      "invalidType": "Error: El tipo de documento \"{tipo}\" no es válido. Debe ser \"changelog\", \"pap\" o \"graph\".",
       "configLoad": "Error al cargar el archivo de configuración .gitdocrc.json: {error}",
       "linterInvalidCommits": "❌ El linter de negocio encontró commits inválidos:\n"
     },
@@ -155,6 +180,8 @@
       "selectType": "Selecciona el tipo de documento a generar:",
       "changelogChoice": "CHANGELOG  (feat, fix, perf, refactor)",
       "papChoice": "PAP        (ci, build + scopes de infraestructura)",
+      "graphChoice": "GRAPH      (Diagrama Mermaid, topología y colaboradores)",
+      "simplifiedPrompt": "¿Deseas una vista simplificada (solo ramas y colaboradores) en lugar de detallada?",
       "fromRef": "Referencia de inicio (--from): tag, rama o HEAD:",
       "noFromChoice": "(sin inicio — desde el principio del historial)",
       "toRef": "Referencia de fin (--to):",

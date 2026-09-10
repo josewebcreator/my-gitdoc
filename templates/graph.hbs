@@ -1,0 +1,23 @@
+# {{labels.title}}
+
+```mermaid
+{{{mermaidDiagram}}}
+```
+
+## {{labels.collaboratorsTitle}}
+
+| {{labels.tableBranch}} | {{labels.tableStatus}} | {{labels.tableCollaborators}} | {{labels.tableCommits}} | {{labels.tableTypes}} |
+| :--- | :--- | :--- | :---: | :--- |
+{{#each branchSummary}}
+| {{#if isCurrent}}* {{/if}}`{{branch}}` | {{statusBadge}} | {{collaboratorsList}} | {{totalCommits}} | {{typesList}} |
+{{/each}}
+{{#if globalSummary}}
+
+## {{labels.globalTitle}}
+
+| {{labels.tableCollaborators}} | {{labels.tableCommits}} | {{labels.tableTypes}} | {{labels.tableScopes}} |
+| :--- | :---: | :--- | :--- |
+{{#each globalSummary}}
+| {{name}} | {{commitsCount}} | {{typesList}} | {{scopesList}} |
+{{/each}}
+{{/if}}

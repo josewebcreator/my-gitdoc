@@ -206,8 +206,18 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     choices: [
       { name: t('wizard.generate.changelogChoice'), value: 'changelog' },
       { name: t('wizard.generate.papChoice'), value: 'pap' },
+      { name: t('wizard.generate.graphChoice'), value: 'graph' },
     ],
   });
+
+  // Si es tipo graph, preguntar granularidad
+  let simplified = false;
+  if (tipo === 'graph') {
+    simplified = await _confirm({
+      message: t('wizard.generate.simplifiedPrompt'),
+      default: false,
+    });
+  }
 
   // 2. Rango de commits: --from / --to
   const refs = await getGitRefs();
@@ -260,7 +270,7 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
   // 5. Nombre de archivo de salida (solo si persistir)
   let outputPath = '';
   if (!isDryRun) {
-    const defaultOutput = tipo === 'changelog' ? 'CHANGELOG.md' : 'PAP.md';
+    const defaultOutput = tipo === 'changelog' ? 'CHANGELOG.md' : (tipo === 'pap' ? 'PAP.md' : 'GRAPH.md');
     outputPath = await _input({
       message: t('wizard.generate.outputPath'),
       default: defaultOutput,
@@ -278,6 +288,7 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     from: fromRef || undefined,
     to: toRef === 'HEAD' ? undefined : toRef,
     scope: scopeFilter || undefined,
+    simplified,
     dryRun: isDryRun,
     output: outputPath || undefined,
     verbose,
@@ -289,21 +300,39 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
   if (isDryRun) {
     // Previsualización: renderizar y mostrar en consola
     try {
-      const { runPipeline } = await import('./pipeline.js');
-      const parsedCommits = [];
-      for await (const commit of runPipeline(tipo, genOptions)) {
-        parsedCommits.push(commit);
-      }
-      const markdown = await renderDocument(parsedCommits, tipo, {
-        scope: genOptions.scope,
-        verbose: genOptions.verbose,
-        i18nInstance: activeI18n,
-      });
+      if (tipo === 'graph') {
+        const { extractTopology } = await import('./graph/topology.js');
+        const { analyzeCollaborators } = await import('./graph/collaborators.js');
+        const topo = await extractTopology(genOptions);
+        const metrics = analyzeCollaborators(topo, genOptions);
+        const markdown = await renderDocument(topo, 'graph', {
+          simplified: genOptions.simplified,
+          topology: topo,
+          collaborators: metrics,
+          i18nInstance: activeI18n,
+        });
 
-      console.log(pc.yellow(t('wizard.generate.previewNotice')));
-      console.log(pc.dim('─'.repeat(60)));
-      console.log(markdown);
-      console.log(pc.dim('─'.repeat(60)));
+        console.log(pc.yellow(t('wizard.generate.previewNotice')));
+        console.log(pc.dim('─'.repeat(60)));
+        console.log(markdown);
+        console.log(pc.dim('─'.repeat(60)));
+      } else {
+        const { runPipeline } = await import('./pipeline.js');
+        const parsedCommits = [];
+        for await (const commit of runPipeline(tipo, genOptions)) {
+          parsedCommits.push(commit);
+        }
+        const markdown = await renderDocument(parsedCommits, tipo, {
+          scope: genOptions.scope,
+          verbose: genOptions.verbose,
+          i18nInstance: activeI18n,
+        });
+
+        console.log(pc.yellow(t('wizard.generate.previewNotice')));
+        console.log(pc.dim('─'.repeat(60)));
+        console.log(markdown);
+        console.log(pc.dim('─'.repeat(60)));
+      }
     } catch (err) {
       console.error(pc.red(t('wizard.generate.previewError', { error: err.message })));
       process.exit(1);

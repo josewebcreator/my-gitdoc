@@ -26,6 +26,8 @@
       "scope": "Isolate documentation to a single module",
       "scopeFlag": "--scope <name>",
       "dryRun": "Test output in console without modifying physical files",
+      "simplified": "Generate simplified branch flowchart instead of detailed commit-by-commit graph",
+      "simplifiedFlag": "-s, --simplified",
       "output": "Output path for the generated file",
       "outputFlag": "-o, --output <path>",
       "template": "Path to custom Handlebars (.hbs) template",
@@ -49,6 +51,10 @@
       "to": "Ending commit reference (tag, hash, or branch)",
       "toFlag": "--to <ref>",
       "json": "Output structured data in JSON format",
+      "simplified": "Generate simplified branch flowchart instead of detailed commit-by-commit graph",
+      "simplifiedFlag": "-s, --simplified",
+      "dryRun": "Preview the branch tree in console without modifying physical files",
+      "dryRunFlag": "--dry-run",
       "header": "🌐 Gitdoc — Topological Analysis & Contributors",
       "baseBranch": "📌 Base Branch:",
       "totalBranches": "🌿 Total Branches:",
@@ -79,9 +85,28 @@
     "wizard": {
       "description": "Interactive wizard for configuration and documentation generation",
       "init": "Interactively create or update .gitdocrc.json configuration file",
-      "generate": "Interactive guide to compile a CHANGELOG or PAP report",
+      "generate": "Interactive guide to compile a CHANGELOG, PAP, or GRAPH report",
       "topology": "Interactive guide for repository topological and contributor analysis"
     }
+  },
+  "graph": {
+    "title": "Git Branch and Topology Graph",
+    "collaboratorsTitle": "Branch Contributors Summary",
+    "globalTitle": "Global Contributors",
+    "tableBranch": "Branch",
+    "tableStatus": "Status",
+    "tableCollaborators": "Main Contributors",
+    "tableCommits": "Commits",
+    "tableTypes": "Change Types",
+    "tableScopes": "Scopes",
+    "statusActive": "active",
+    "statusMerged": "merged",
+    "statusDiverged": "diverged",
+    "statusBase": "base",
+    "terminalTitle": "🌱 Gitdoc — Topological Branch Tree",
+    "unmergedAhead": "{ahead} pending",
+    "terminalBase": "base branch",
+    "limitWarning": "⚠ Warning: Repository contains {count} commits (> 150). We recommend using the simplified view (--simplified)."
   },
   "sections": {
     "feat": "Features",
@@ -109,7 +134,7 @@
   },
   "pipeline": {
     "errors": {
-      "invalidType": "Error: Document type \"{tipo}\" is not valid. Must be \"changelog\" or \"pap\".",
+      "invalidType": "Error: Document type \"{tipo}\" is not valid. Must be \"changelog\", \"pap\" or \"graph\".",
       "configLoad": "Error loading configuration file .gitdocrc.json: {error}",
       "linterInvalidCommits": "❌ Business linter found invalid commits:\n"
     },
@@ -155,6 +180,8 @@
       "selectType": "Select the document type to generate:",
       "changelogChoice": "CHANGELOG  (feat, fix, perf, refactor)",
       "papChoice": "PAP        (ci, build + infrastructure scopes)",
+      "graphChoice": "GRAPH      (Mermaid diagram, topology and contributors)",
+      "simplifiedPrompt": "Do you want a simplified view (branches and contributors only) instead of detailed?",
       "fromRef": "Starting reference (--from): tag, branch or HEAD:",
       "noFromChoice": "(no start — from beginning of history)",
       "toRef": "Ending reference (--to):",

@@ -10,6 +10,7 @@ import { t, initI18n } from '../src/i18n/index.js';
 import pc from 'picocolors';
 import { extractTopology, printTopologyReport } from '../src/graph/topology.js';
 import { analyzeCollaborators } from '../src/graph/collaborators.js';
+import { printTerminalTree } from '../src/graph/terminal.js';
 
 // Pre-parsear -l o --lang de process.argv antes de configurar Commander
 let cliLang;
@@ -81,6 +82,7 @@ program
   .option('--to <tag/commit/hash>', t('cli.generate.to'))
   .option(t('cli.generate.scopeFlag'), t('cli.generate.scope'))
   .option('--dry-run', t('cli.generate.dryRun'))
+  .option(t('cli.generate.simplifiedFlag'), t('cli.generate.simplified'))
   .option(t('cli.generate.outputFlag'), t('cli.generate.output'))
   .option(t('cli.generate.templateFlag'), t('cli.generate.template'))
   .option('-v, --verbose', t('cli.generate.verbose'))
@@ -105,6 +107,8 @@ program
   .option(t('cli.topology.untilFlag'), t('cli.topology.until'))
   .option(t('cli.topology.fromFlag'), t('cli.topology.from'))
   .option(t('cli.topology.toFlag'), t('cli.topology.to'))
+  .option(t('cli.topology.simplifiedFlag'), t('cli.topology.simplified'))
+  .option(t('cli.topology.dryRunFlag'), t('cli.topology.dryRun'))
   .option('--json', t('cli.topology.json'))
   .action(async (branchArg, options, cmd) => {
     const rawPositional = typeof branchArg === 'string' && branchArg.trim().length > 0 ? branchArg.trim() : null;
@@ -122,6 +126,11 @@ program
     try {
       const topo = await extractTopology(mergedOpts);
       const metrics = analyzeCollaborators(topo, mergedOpts);
+
+      if (mergedOpts.dryRun) {
+        printTerminalTree(topo, metrics);
+        return;
+      }
 
       if (mergedOpts.json) {
         console.log(JSON.stringify({ topology: topo, collaborators: metrics }, null, 2));

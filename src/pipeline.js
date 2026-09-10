@@ -12,6 +12,7 @@ import pc from 'picocolors';
 const OUTPUT_FILES = {
   changelog: 'CHANGELOG.md',
   pap:       'PAP.md',
+  graph:     'GRAPH.md',
 };
 
 export async function* runPipeline(tipo, options = {}, rules = {}) {
@@ -52,13 +53,44 @@ export async function runGenerate(tipo, options = {}) {
     customCatalogs: rules.i18n,
   });
 
-  const tiposValidos = ['changelog', 'pap'];
+  const tiposValidos = ['changelog', 'pap', 'graph'];
   if (!tiposValidos.includes(tipo)) {
     console.error(pc.red(t('pipeline.errors.invalidType', { tipo })));
     process.exit(1);
   }
 
   try {
+    // Hito 12: Generación de reporte topológico y grafo Mermaid
+    if (tipo === 'graph') {
+      const { extractTopology } = await import('./graph/topology.js');
+      const { analyzeCollaborators } = await import('./graph/collaborators.js');
+      const { printTerminalTree } = await import('./graph/terminal.js');
+
+      const topo = await extractTopology({ ...options, cwd: options.cwd || process.cwd() });
+      const metrics = analyzeCollaborators(topo, options);
+
+      if (options.dryRun) {
+        process.stdout.write(pc.yellow(t('pipeline.dryRunNotice')));
+        printTerminalTree(topo, metrics, { i18nInstance });
+        return;
+      }
+
+      const markdown = await renderDocument(topo, 'graph', {
+        template: options.template || undefined,
+        simplified: !!options.simplified,
+        topology: topo,
+        collaborators: metrics,
+        remoteUrl: rules.remoteUrl || undefined,
+        i18nInstance,
+      });
+
+      const outputPath = resolve(process.cwd(), options.output || OUTPUT_FILES[tipo]);
+      const outputDir = dirname(outputPath);
+      await mkdir(outputDir, { recursive: true });
+      await writeFile(outputPath, markdown, 'utf-8');
+      console.log(pc.green(t('pipeline.successGenerated', { path: options.output || OUTPUT_FILES[tipo] })));
+      return;
+    }
     const parsedCommits = [];
     const lintErrors = [];
 
