@@ -34,6 +34,8 @@
     },
     "topology": {
       "description": "Analyze and display repository topology, branches, and contributors",
+      "base": "Base reference branch for topological analysis (e.g. main, dev)",
+      "baseFlag": "-B, --base <branch>",
       "branch": "Filter by branch name",
       "branchFlag": "-b, --branch <name>",
       "author": "Filter by collaborator (name or email)",

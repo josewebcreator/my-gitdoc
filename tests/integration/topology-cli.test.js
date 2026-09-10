@@ -151,3 +151,17 @@ test('CLI Topology Error - fails when positional branch argument is not found', 
   assert.ok(stderr.includes('No se encontró la rama especificada "rama-inexistente".'));
 });
 
+test('CLI Topology - supports -B, --base to specify reference branch', async () => {
+  const { code, stdout } = await runCli('topology --base dev --lang es');
+  assert.strictEqual(code, 0);
+  assert.ok(stdout.includes('dev'));
+  assert.ok(stdout.includes('Rama Base:'));
+});
+
+test('CLI Topology Error - fails when --base branch is not found (localized)', async () => {
+  const { code, stderr } = await runCli('topology --base base-inexistente --lang es');
+  assert.strictEqual(code, 1);
+  assert.ok(stderr.includes('No se encontró la rama especificada "base-inexistente".'));
+});
+
+

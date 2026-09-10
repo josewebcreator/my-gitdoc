@@ -34,6 +34,8 @@
     },
     "topology": {
       "description": "Analizar y mostrar la topología del repositorio, ramas y colaboradores",
+      "base": "Rama base de referencia para el análisis topológico (ej. main, dev)",
+      "baseFlag": "-B, --base <rama>",
       "branch": "Filtrar por nombre de rama",
       "branchFlag": "-b, --branch <nombre>",
       "author": "Filtrar por colaborador (nombre o email)",

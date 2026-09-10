@@ -98,6 +98,7 @@ program
   .alias('graph')
   .description(t('cli.topology.description'))
   .option(t('cli.langFlag'), t('cli.langOption'))
+  .option(t('cli.topology.baseFlag'), t('cli.topology.base'))
   .option(t('cli.topology.branchFlag'), t('cli.topology.branch'))
   .option(t('cli.topology.authorFlag'), t('cli.topology.author'))
   .option(t('cli.topology.sinceFlag'), t('cli.topology.since'))
@@ -106,11 +107,14 @@ program
   .option(t('cli.topology.toFlag'), t('cli.topology.to'))
   .option('--json', t('cli.topology.json'))
   .action(async (branchArg, options, cmd) => {
-    const branch = typeof branchArg === 'string' && branchArg.length > 0 ? branchArg : options.branch;
+    const rawPositional = typeof branchArg === 'string' && branchArg.trim().length > 0 ? branchArg.trim() : null;
+    const baseBranch = options.base || (rawPositional && !options.branch ? rawPositional : undefined);
+    const branchFilter = options.branch;
     const mergedOpts = {
       ...(cmd.optsWithGlobals ? cmd.optsWithGlobals() : {}),
       ...options,
-      ...(branch ? { branch } : {}),
+      ...(baseBranch ? { baseBranch } : {}),
+      ...(branchFilter ? { branch: branchFilter } : {}),
     };
     if (mergedOpts.lang) {
       initI18n({ lang: mergedOpts.lang });
