@@ -1,0 +1,126 @@
+{
+  "cli": {
+    "description": "CLI for automatic generation of CHANGELOGs and PAPs based on commits",
+    "versionOption": "output the version number",
+    "helpOption": "display help for command",
+    "helpCommand": "display help for command",
+    "helpCommandTerm": "help [command]",
+    "langOption": "Language for documentation generation and messages (e.g. es, en)",
+    "langFlag": "-l, --lang <locale>",
+    "headings": {
+      "usage": "Usage:",
+      "arguments": "Arguments:",
+      "options": "Options:",
+      "commands": "Commands:"
+    },
+    "terms": {
+      "options": "[options]",
+      "command": "[command]"
+    },
+    "generate": {
+      "description": "Generate a documentation report (changelog or pap)",
+      "argumentType": "<type>",
+      "argumentTipo": "Document type to generate (changelog or pap)",
+      "from": "Starting tag, commit hash, or branch",
+      "to": "Ending tag, commit hash, or branch",
+      "scope": "Isolate documentation to a single module",
+      "scopeFlag": "--scope <name>",
+      "dryRun": "Test output in console without modifying physical files",
+      "output": "Output path for the generated file",
+      "outputFlag": "-o, --output <path>",
+      "template": "Path to custom Handlebars (.hbs) template",
+      "templateFlag": "-t, --template <path>",
+      "verbose": "Enable verbose mode"
+    },
+    "wizard": {
+      "description": "Interactive wizard for configuration and documentation generation",
+      "init": "Interactively create or update .gitdocrc.json configuration file",
+      "generate": "Interactive guide to compile a CHANGELOG or PAP report"
+    }
+  },
+  "sections": {
+    "feat": "Features",
+    "fix": "Bug Fixes",
+    "perf": "Performance Improvements",
+    "refactor": "Refactoring",
+    "docs": "Documentation",
+    "style": "Styles",
+    "test": "Tests",
+    "build": "Build System",
+    "ci": "Continuous Integration",
+    "chore": "Chores",
+    "revert": "Reverts",
+    "breakingChanges": "Breaking Changes",
+    "other": "Other Changes"
+  },
+  "pap": {
+    "title": "Production Deployment Procedure (PAP)",
+    "component": "Component:",
+    "directives": {
+      "run": "Execution:",
+      "rollback": "Rollback:",
+      "verify": "Smoke Tests / Verification:"
+    }
+  },
+  "pipeline": {
+    "errors": {
+      "invalidType": "Error: Document type \"{tipo}\" is not valid. Must be \"changelog\" or \"pap\".",
+      "configLoad": "Error loading configuration file .gitdocrc.json: {error}",
+      "linterInvalidCommits": "❌ Business linter found invalid commits:\n"
+    },
+    "commitWithoutHash": "(no hash)",
+    "dryRunNotice": "⚠  Simulation mode (--dry-run): no physical files will be written.\n\n",
+    "successGenerated": "✅ Generated document: {path}"
+  },
+  "git": {
+    "errors": {
+      "notGitRepo": "The current directory is not a valid Git repository.",
+      "noCommits": "The repository contains no commits.",
+      "refNotFound": "The reference \"{ref}\" does not exist in repository history."
+    }
+  },
+  "linter": {
+    "errors": {
+      "missingField": "Missing required field: \"{field}\". The commit must have a {field} defined.",
+      "invalidType": "Invalid commit type: \"{type}\". Allowed types: {allowed}.",
+      "forbiddenTerm": "Commit contains forbidden term \"{term}\". Suggestion: use \"{suggestion}\" instead."
+    }
+  },
+  "wizard": {
+    "main": {
+      "prompt": "What would you like to do?",
+      "initChoice": "Initialize / update configuration (.gitdocrc.json)",
+      "generateChoice": "Generate documentation report (CHANGELOG / PAP)"
+    },
+    "init": {
+      "header": "\n🔧  Initialization Wizard — Project Configuration\n",
+      "existingConfigWarning": "⚠  Found existing .gitdocrc.json file. Current values will be shown as defaults.\n",
+      "remoteUrl": "Remote repository URL (for commit/issue autolinking):",
+      "allowedTypes": "Allowed commit types in this project:",
+      "allowedScopes": "Allowed scopes (comma-separated, or leave empty for no restriction):",
+      "selectLanguage": "Default language for documentation and messages:",
+      "confirmSave": "Save configuration to {file}?",
+      "cancelled": "\n⚠  Operation cancelled. No file was saved.\n",
+      "success": "\n✅ Successfully saved .gitdocrc.json file.\n"
+    },
+    "generate": {
+      "header": "\n📄  Generation Wizard — Compile documentation report\n",
+      "selectType": "Select the document type to generate:",
+      "changelogChoice": "CHANGELOG  (feat, fix, perf, refactor)",
+      "papChoice": "PAP        (ci, build + infrastructure scopes)",
+      "fromRef": "Starting reference (--from): tag, branch or HEAD:",
+      "noFromChoice": "(no start — from beginning of history)",
+      "toRef": "Ending reference (--to):",
+      "scopeFilter": "Filter by scope (optional):",
+      "noScopeFilter": "(no filter — include all scopes)",
+      "manualScope": "(enter manually)",
+      "enterScope": "Enter scope name:",
+      "filterScopePrompt": "Filter by scope (leave empty to include all):",
+      "confirmDryRun": "Preview in console without saving files? (dry-run)",
+      "outputPath": "Output file path:",
+      "confirmVerbose": "Enable verbose mode? (includes more commit types)",
+      "previewNotice": "⚠  Preview mode — no physical files will be written.\n",
+      "previewError": "\n❌ Error during preview: {error}\n"
+    }
+  }
+}
