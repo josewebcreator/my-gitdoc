@@ -160,7 +160,7 @@
     "main": {
       "prompt": "What would you like to do?",
       "initChoice": "Initialize / update configuration (.gitdocrc.json)",
-      "generateChoice": "Generate documentation report (CHANGELOG / PAP)",
+      "generateChoice": "Generate documentation report (CHANGELOG / PAP / GRAPH)",
       "topologyChoice": "Topological analysis of repository, branches, and contributors"
     },
     "init": {
@@ -205,9 +205,12 @@
       "askDateFilters": "Would you like to filter by date range?",
       "sincePrompt": "Start date (YYYY-MM-DD, leave empty to skip):",
       "untilPrompt": "End date (YYYY-MM-DD, leave empty to skip):",
-      "selectFormat": "Select display format:",
-      "formatTerminal": "Formatted terminal report (with badges and contributor breakdown)",
-      "formatJson": "Structured JSON"
+      "selectFormat": "Select display or generation format:",
+      "formatTree": "Topological branch tree in terminal (Unicode/ANSI tree preview)",
+      "formatGraph": "Generate GRAPH.md document with Mermaid diagram",
+      "formatTerminal": "Full terminal report (with badges and contributor breakdown)",
+      "formatJson": "Structured JSON",
+      "graphSaved": "\n✅ Successfully generated GRAPH.md document at: {path}\n"
     }
   },
   "topology": {

@@ -375,3 +375,79 @@ test('wizard topology — ejecuta con formato JSON y filtros', async () => {
   assert.strictEqual(res.topology.baseBranch, 'dev');
 });
 
+test('wizard generate — soporta tipo graph interactivo con preview dry-run', async () => {
+  const prompts = {
+    select: (opts) => {
+      if (opts.message.includes('tipo de documento') || opts.message.includes('document type') || opts.message.includes('Document type')) return Promise.resolve('graph');
+      if (opts.message.includes('inicio') || opts.message.includes('Starting') || opts.message.includes('from')) return Promise.resolve('');
+      if (opts.message.includes('fin') || opts.message.includes('Ending') || opts.message.includes('to')) return Promise.resolve('HEAD');
+      if (opts.message.includes('scope') || opts.message.includes('Scope')) return Promise.resolve('');
+      return Promise.resolve(opts.choices?.[0]?.value ?? '');
+    },
+    input: mockInput(''),
+    confirm: (opts) => {
+      if (opts.message.includes('simplificada') || opts.message.includes('simplified')) return Promise.resolve(true);
+      if (opts.message.includes('dry-run')) return Promise.resolve(true);
+      if (opts.message.includes('verboso') || opts.message.includes('verbose')) return Promise.resolve(false);
+      return Promise.resolve(true);
+    },
+  };
+
+  await assert.doesNotReject(
+    () => runWizardGenerate(prompts),
+    'runWizardGenerate GRAPH dry-run no debería rechazar la promesa'
+  );
+});
+
+test('wizard topology — ejecuta con formato tree (árbol Unicode/ANSI)', async () => {
+  const prompts = {
+    select: (opts) => {
+      if (opts.message.includes('base') || opts.message.includes('Base')) return Promise.resolve('main');
+      if (opts.message.includes('específica') || opts.message.includes('specific')) return Promise.resolve('');
+      if (opts.message.includes('formato') || opts.message.includes('format') || opts.message.includes('Format')) return Promise.resolve('tree');
+      return Promise.resolve(opts.choices?.[0]?.value ?? '');
+    },
+    input: mockInput(''),
+    confirm: mockConfirm(false),
+  };
+
+  const res = await runWizardTopology(prompts, { lang: 'es' });
+  assert.ok(res.topology);
+  assert.ok(res.collaborators);
+  assert.strictEqual(res.topology.baseBranch, 'main');
+});
+
+test('wizard topology — genera GRAPH.md con formato graph interactivo', async () => {
+  const testOutputPath = path.resolve(projectRoot, 'tmp_wiz_graph.md');
+  try { await unlink(testOutputPath); } catch {}
+
+  const prompts = {
+    select: (opts) => {
+      if (opts.message.includes('base') || opts.message.includes('Base')) return Promise.resolve('main');
+      if (opts.message.includes('específica') || opts.message.includes('specific')) return Promise.resolve('');
+      if (opts.message.includes('formato') || opts.message.includes('format') || opts.message.includes('Format')) return Promise.resolve('graph');
+      return Promise.resolve(opts.choices?.[0]?.value ?? '');
+    },
+    input: (opts) => {
+      if (opts.message.includes('salida') || opts.message.includes('output')) return Promise.resolve('tmp_wiz_graph.md');
+      return Promise.resolve('');
+    },
+    confirm: (opts) => {
+      if (opts.message.includes('simplificada') || opts.message.includes('simplified')) return Promise.resolve(true);
+      return Promise.resolve(false);
+    },
+  };
+
+  try {
+    const res = await runWizardTopology(prompts, { lang: 'es' });
+    assert.ok(res.topology);
+    assert.ok(fs.existsSync(testOutputPath), 'tmp_wiz_graph.md debe haber sido generado');
+    const content = fs.readFileSync(testOutputPath, 'utf-8');
+    assert.ok(content.includes('```mermaid'), 'Debe contener bloque mermaid');
+    assert.ok(content.includes('flowchart LR'), 'Debe contener flowchart LR por haber seleccionado simplificado');
+  } finally {
+    try { await unlink(testOutputPath); } catch {}
+  }
+});
+
+

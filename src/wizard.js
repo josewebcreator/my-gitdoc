@@ -1,6 +1,6 @@
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { select, checkbox, input, confirm } from '@inquirer/prompts';
 import { simpleGit } from 'simple-git';
 import { runGenerate } from './pipeline.js';
@@ -368,7 +368,7 @@ export async function runWizardTopology(prompts = {}, options = {}) {
     } catch {}
   }
 
-  initI18n({
+  const activeI18n = initI18n({
     lang: options.lang,
     configLocale: existingConfig.locale,
     customCatalogs: existingConfig.i18n,
@@ -432,14 +432,16 @@ export async function runWizardTopology(prompts = {}, options = {}) {
     });
   }
 
-  // 6. Formato de salida
+  // 6. Formato de salida o generación
   const format = await _select({
     message: t('wizard.topology.selectFormat'),
     choices: [
+      { name: t('wizard.topology.formatTree'), value: 'tree' },
+      { name: t('wizard.topology.formatGraph'), value: 'graph' },
       { name: t('wizard.topology.formatTerminal'), value: 'terminal' },
       { name: t('wizard.topology.formatJson'), value: 'json' },
     ],
-    default: 'terminal',
+    default: 'tree',
   });
 
   const topoOptions = {
@@ -455,6 +457,35 @@ export async function runWizardTopology(prompts = {}, options = {}) {
   try {
     const topo = await extractTopology(topoOptions);
     const metrics = analyzeCollaborators(topo, topoOptions);
+
+    if (format === 'tree') {
+      const { printTerminalTree } = await import('./graph/terminal.js');
+      printTerminalTree(topo, metrics);
+      return { topology: topo, collaborators: metrics };
+    }
+
+    if (format === 'graph') {
+      const simplified = await _confirm({
+        message: t('wizard.generate.simplifiedPrompt'),
+        default: false,
+      });
+      const outputPath = await _input({
+        message: t('wizard.generate.outputPath'),
+        default: 'GRAPH.md',
+      });
+      const markdown = await renderDocument(topo, 'graph', {
+        simplified,
+        topology: topo,
+        collaborators: metrics,
+        remoteUrl: existingConfig.remoteUrl || undefined,
+        i18nInstance: activeI18n,
+      });
+      const resolvedPath = resolve(process.cwd(), outputPath || 'GRAPH.md');
+      await mkdir(dirname(resolvedPath), { recursive: true });
+      await writeFile(resolvedPath, markdown, 'utf-8');
+      console.log(pc.green(t('wizard.topology.graphSaved', { path: outputPath || 'GRAPH.md' })));
+      return { topology: topo, collaborators: metrics };
+    }
 
     if (format === 'json') {
       console.log(JSON.stringify({ topology: topo, collaborators: metrics }, null, 2));

@@ -160,7 +160,7 @@
     "main": {
       "prompt": "¿Qué deseas hacer?",
       "initChoice": "Inicializar / actualizar configuración (.gitdocrc.json)",
-      "generateChoice": "Generar un reporte de documentación (CHANGELOG / PAP)",
+      "generateChoice": "Generar un reporte de documentación (CHANGELOG / PAP / GRAPH)",
       "topologyChoice": "Análisis topológico del repositorio, ramas y colaboradores"
     },
     "init": {
@@ -205,9 +205,12 @@
       "askDateFilters": "¿Deseas acotar por rango de fechas?",
       "sincePrompt": "Fecha inicial (YYYY-MM-DD, deja vacío para omitir):",
       "untilPrompt": "Fecha final (YYYY-MM-DD, deja vacío para omitir):",
-      "selectFormat": "Selecciona el formato de visualización:",
-      "formatTerminal": "Reporte formateado en terminal (con badges e información de colaboradores)",
-      "formatJson": "JSON estructurado"
+      "selectFormat": "Selecciona el formato de visualización o generación:",
+      "formatTree": "Árbol topológico de ramas en terminal (previsualización Unicode/ANSI tipo tree)",
+      "formatGraph": "Generar documento GRAPH.md con diagrama Mermaid",
+      "formatTerminal": "Reporte completo en terminal (con badges e información de colaboradores)",
+      "formatJson": "JSON estructurado",
+      "graphSaved": "\n✅ Documento GRAPH.md guardado exitosamente en: {path}\n"
     }
   },
   "topology": {
