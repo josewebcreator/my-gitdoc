@@ -2,29 +2,21 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
+import { t, getI18n, createI18n } from './i18n/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Helper Handlebars para traducir claves de i18n
+Handlebars.registerHelper('t', function(key, options) {
+  const params = (options && options.hash) ? options.hash : {};
+  return t(key, params);
+});
 
 // --- Tipos permitidos por variante ---
 
 const CHANGELOG_TYPES = new Set(['feat', 'fix', 'perf', 'refactor']);
 const PAP_TYPES = new Set(['ci', 'build']);
 const PAP_INFRA_SCOPES = new Set(['db', 'infra', 'docker', 'config']);
-
-// Mapeo tipo → título de sección en español
-const TYPE_TITLES = {
-  feat:     'Nuevas Características',
-  fix:      'Correcciones de Bugs',
-  perf:     'Mejoras de Rendimiento',
-  refactor: 'Refactorizaciones',
-  docs:     'Documentación',
-  style:    'Estilos',
-  test:     'Pruebas',
-  build:    'Compilación',
-  ci:       'Integración Continua',
-  chore:    'Otros Cambios',
-  revert:   'Reversiones',
-};
 
 // --- Hito 7: Directivas técnicas ---
 
@@ -103,9 +95,10 @@ export function generateRemoteLinks(text, remoteUrl) {
  * @param {object[]} commits  - Commits parseados por parseCommit()
  * @param {string|undefined} scopeFilter - Scope a filtrar (flag --scope)
  * @param {boolean} verbose - Indica si se incluye verbosidad y otros tipos
+ * @param {object|null} [i18nInstance] - Instancia opcional de i18n para resolución localizada de títulos
  * @returns {{ breakingChanges: object[], sections: { title: string, commits: object[] }[] }}
  */
-export function groupForChangelog(commits, scopeFilter, verbose = false) {
+export function groupForChangelog(commits, scopeFilter, verbose = false, i18nInstance = null) {
   const allowedTypes = verbose
     ? new Set(['feat', 'fix', 'perf', 'refactor', 'docs', 'style', 'test', 'build', 'ci', 'chore', 'revert'])
     : CHANGELOG_TYPES;
@@ -119,6 +112,7 @@ export function groupForChangelog(commits, scopeFilter, verbose = false) {
   const breakingChanges = [];
   // sections indexado por tipo para mantener orden
   const sectionMap = new Map();
+  const translate = (i18nInstance && i18nInstance.t) || t;
 
   for (const commit of filtered) {
     // Detectar breaking change: notes con title BREAKING CHANGE
@@ -131,7 +125,13 @@ export function groupForChangelog(commits, scopeFilter, verbose = false) {
     }
 
     // Siempre añadir a su sección de tipo (incluso si es breaking change)
-    const title = TYPE_TITLES[commit.type] || (commit.type ? commit.type.charAt(0).toUpperCase() + commit.type.slice(1) : 'Otros');
+    const titleKey = `sections.${commit.type}`;
+    const translated = translate(titleKey);
+    const fallbackTitle = commit.type
+      ? commit.type.charAt(0).toUpperCase() + commit.type.slice(1)
+      : translate('sections.other');
+    const title = (translated && translated !== titleKey) ? translated : fallbackTitle;
+
     if (!sectionMap.has(commit.type)) {
       sectionMap.set(commit.type, { title, commits: [] });
     }
@@ -223,15 +223,25 @@ export async function renderDocument(commits, tipo, optionsOrScope) {
   let templatePath;
   let verbose = false;
   let remoteUrl;
+  let lang;
+  let customCatalogs;
+  let i18nInstance;
 
   if (optionsOrScope && typeof optionsOrScope === 'object') {
     scopeFilter = optionsOrScope.scope;
     templatePath = optionsOrScope.template;
     verbose = !!optionsOrScope.verbose;
     remoteUrl = optionsOrScope.remoteUrl;
+    lang = optionsOrScope.lang || optionsOrScope.locale;
+    customCatalogs = optionsOrScope.i18n || optionsOrScope.customCatalogs;
+    i18nInstance = optionsOrScope.i18nInstance;
   } else {
     scopeFilter = optionsOrScope;
   }
+
+  const currentI18n = i18nInstance
+    || ((lang || customCatalogs) ? createI18n({ lang, customCatalogs }) : getI18n());
+  const translate = currentI18n.t;
 
   // Inyectar verbose flag en cada commit para simplificar plantillas
   const commitsWithVerbose = commits.map(c => ({
@@ -244,9 +254,19 @@ export async function renderDocument(commits, tipo, optionsOrScope) {
 
   let data;
   if (tipo === 'changelog') {
-    data = groupForChangelog(commitsWithVerbose, scopeFilter, verbose);
+    data = groupForChangelog(commitsWithVerbose, scopeFilter, verbose, currentI18n);
+    data.labels = {
+      breakingChanges: translate('sections.breakingChanges'),
+    };
   } else {
     data = groupForPap(commitsWithVerbose, scopeFilter);
+    data.labels = {
+      title: translate('pap.title'),
+      component: translate('pap.component'),
+      run: translate('pap.directives.run'),
+      rollback: translate('pap.directives.rollback'),
+      verify: translate('pap.directives.verify'),
+    };
   }
 
   let markdown = template(data);
