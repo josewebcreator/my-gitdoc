@@ -7,6 +7,7 @@ import { runGenerate } from './pipeline.js';
 import { renderDocument } from './renderer.js';
 import { getCommits } from './git.js';
 import { parseCommit } from './parser.js';
+import { initI18n, t } from './i18n/index.js';
 import pc from 'picocolors';
 
 // ---------------------------------------------------------------------------
@@ -57,36 +58,46 @@ async function getKnownScopes(from, to) {
  * con la configuración básica del proyecto.
  *
  * @param {object} [prompts] - Inyección de dependencias de prompts (para testing).
- *   Si no se provee, se usan los prompts reales de @inquirer/prompts.
+ * @param {object} [options] - Opciones de CLI (ej. options.lang)
  */
-export async function runWizardInit(prompts = {}) {
+export async function runWizardInit(prompts = {}, options = {}) {
   const _input    = prompts.input    ?? input;
   const _checkbox = prompts.checkbox ?? checkbox;
   const _confirm  = prompts.confirm  ?? confirm;
-
-  console.log(pc.cyan('\n🔧  Wizard de inicialización — Configuración del proyecto\n'));
+  const _select   = prompts.select   ?? select;
 
   const configPath = resolve(process.cwd(), '.gitdocrc.json');
   let existingConfig = {};
   if (existsSync(configPath)) {
     try {
       existingConfig = JSON.parse(await readFile(configPath, 'utf-8'));
-      console.log(pc.yellow('⚠  Se encontró un archivo .gitdocrc.json existente. Los valores actuales se mostrarán como default.\n'));
     } catch {
       // ignorar errores de parseo
     }
   }
 
+  initI18n({
+    lang: options.lang,
+    configLocale: existingConfig.locale,
+    customCatalogs: existingConfig.i18n,
+  });
+
+  console.log(pc.cyan(t('wizard.init.header')));
+
+  if (existsSync(configPath)) {
+    console.log(pc.yellow(t('wizard.init.existingConfigWarning')));
+  }
+
   // --- Preguntas ---
 
   const remoteUrl = await _input({
-    message: 'URL remota del repositorio (para autolinking de commits/issues):',
+    message: t('wizard.init.remoteUrl'),
     default: existingConfig.remoteUrl || '',
   });
 
   const KNOWN_TYPES = ['feat', 'fix', 'perf', 'refactor', 'docs', 'style', 'test', 'build', 'ci', 'chore', 'revert'];
   const allowedTypesAnswer = await _checkbox({
-    message: 'Tipos de commit permitidos en este proyecto:',
+    message: t('wizard.init.allowedTypes'),
     choices: KNOWN_TYPES.map(t => ({
       name: t,
       value: t,
@@ -97,34 +108,53 @@ export async function runWizardInit(prompts = {}) {
   });
 
   const scopesRaw = await _input({
-    message: 'Scopes permitidos (separados por coma, o deja vacío para no restringir):',
+    message: t('wizard.init.allowedScopes'),
     default: existingConfig.allowedScopes ? existingConfig.allowedScopes.join(', ') : '',
   });
+
+  // Hito 10 Task 3.4: Preguntar idioma por defecto si no existe en .gitdocrc.json
+  let selectedLocale = existingConfig.locale;
+  if (!existingConfig.locale) {
+    const isMockedWithoutSelect = prompts && Object.keys(prompts).length > 0 && !prompts.select;
+    if (!isMockedWithoutSelect) {
+      selectedLocale = await _select({
+        message: t('wizard.init.selectLanguage'),
+        choices: [
+          { name: 'English (en)', value: 'en' },
+          { name: 'Español (es)', value: 'es' },
+        ],
+        default: 'en',
+      });
+    } else {
+      selectedLocale = 'en';
+    }
+  }
 
   // --- Construir objeto de configuración ---
 
   const config = {};
+  if (selectedLocale) config.locale = selectedLocale;
   if (remoteUrl.trim()) config.remoteUrl = remoteUrl.trim();
   if (allowedTypesAnswer.length > 0) config.allowedTypes = allowedTypesAnswer;
   if (scopesRaw.trim()) {
     config.allowedScopes = scopesRaw.split(',').map(s => s.trim()).filter(Boolean);
   }
 
-  // Preservar otras claves que pudieran existir (ej: forbiddenTerms)
+  // Preservar otras claves que pudieran existir (ej: forbiddenTerms, i18n)
   const finalConfig = { ...existingConfig, ...config };
 
   const shouldWrite = await _confirm({
-    message: `¿Guardar la configuración en ${pc.bold('.gitdocrc.json')}?`,
+    message: t('wizard.init.confirmSave', { file: pc.bold('.gitdocrc.json') }),
     default: true,
   });
 
   if (!shouldWrite) {
-    console.log(pc.yellow('\n⚠  Operación cancelada. No se guardó ningún archivo.\n'));
+    console.log(pc.yellow(t('wizard.init.cancelled')));
     return;
   }
 
   await writeFile(configPath, JSON.stringify(finalConfig, null, 2), 'utf-8');
-  console.log(pc.green(`\n✅ Archivo .gitdocrc.json guardado exitosamente.\n`));
+  console.log(pc.green(t('wizard.init.success')));
   console.log(pc.dim(JSON.stringify(finalConfig, null, 2)));
   console.log();
 }
@@ -138,21 +168,36 @@ export async function runWizardInit(prompts = {}) {
  * (changelog o pap), permitiendo previsualizar o persistir el resultado.
  *
  * @param {object} [prompts] - Inyección de dependencias de prompts (para testing).
- *   Si no se provee, se usan los prompts reales de @inquirer/prompts.
+ * @param {object} [options] - Opciones de CLI (ej. options.lang)
  */
-export async function runWizardGenerate(prompts = {}) {
+export async function runWizardGenerate(prompts = {}, options = {}) {
   const _select  = prompts.select  ?? select;
   const _input   = prompts.input   ?? input;
   const _confirm = prompts.confirm ?? confirm;
 
-  console.log(pc.cyan('\n📄  Wizard de generación — Compilar reporte de documentación\n'));
+  // Cargar .gitdocrc.json para configurar i18n
+  const configPath = resolve(process.cwd(), '.gitdocrc.json');
+  let existingConfig = {};
+  if (existsSync(configPath)) {
+    try {
+      existingConfig = JSON.parse(await readFile(configPath, 'utf-8'));
+    } catch {}
+  }
+
+  const activeI18n = initI18n({
+    lang: options.lang,
+    configLocale: existingConfig.locale,
+    customCatalogs: existingConfig.i18n,
+  });
+
+  console.log(pc.cyan(t('wizard.generate.header')));
 
   // 1. Tipo de documento
   const tipo = await _select({
-    message: 'Selecciona el tipo de documento a generar:',
+    message: t('wizard.generate.selectType'),
     choices: [
-      { name: 'CHANGELOG  (feat, fix, perf, refactor)', value: 'changelog' },
-      { name: 'PAP        (ci, build + scopes de infraestructura)', value: 'pap' },
+      { name: t('wizard.generate.changelogChoice'), value: 'changelog' },
+      { name: t('wizard.generate.papChoice'), value: 'pap' },
     ],
   });
 
@@ -161,12 +206,12 @@ export async function runWizardGenerate(prompts = {}) {
   const refChoices = refs.map(r => ({ name: r, value: r }));
 
   const fromRef = await _select({
-    message: 'Referencia de inicio (--from): tag, rama o HEAD:',
-    choices: [{ name: '(sin inicio — desde el principio del historial)', value: '' }, ...refChoices],
+    message: t('wizard.generate.fromRef'),
+    choices: [{ name: t('wizard.generate.noFromChoice'), value: '' }, ...refChoices],
   });
 
   const toRef = await _select({
-    message: 'Referencia de fin (--to):',
+    message: t('wizard.generate.toRef'),
     choices: refChoices,
     default: 'HEAD',
   });
@@ -177,22 +222,22 @@ export async function runWizardGenerate(prompts = {}) {
 
   if (knownScopes.length > 0) {
     const scopeChoices = [
-      { name: '(sin filtro — incluir todos los scopes)', value: '' },
+      { name: t('wizard.generate.noScopeFilter'), value: '' },
       ...knownScopes.map(s => ({ name: s, value: s })),
-      { name: '(escribir manualmente)', value: '__manual__' },
+      { name: t('wizard.generate.manualScope'), value: '__manual__' },
     ];
     const scopeAnswer = await _select({
-      message: 'Filtrar por scope (opcional):',
+      message: t('wizard.generate.scopeFilter'),
       choices: scopeChoices,
     });
     if (scopeAnswer === '__manual__') {
-      scopeFilter = await _input({ message: 'Ingresa el nombre del scope:' });
+      scopeFilter = await _input({ message: t('wizard.generate.enterScope') });
     } else {
       scopeFilter = scopeAnswer;
     }
   } else {
     const manualScope = await _input({
-      message: 'Filtrar por scope (deja vacío para incluir todo):',
+      message: t('wizard.generate.filterScopePrompt'),
       default: '',
     });
     scopeFilter = manualScope.trim();
@@ -200,7 +245,7 @@ export async function runWizardGenerate(prompts = {}) {
 
   // 4. Modo: dry-run o persistir
   const isDryRun = await _confirm({
-    message: '¿Previsualizar en consola sin guardar archivos? (dry-run)',
+    message: t('wizard.generate.confirmDryRun'),
     default: true,
   });
 
@@ -209,25 +254,26 @@ export async function runWizardGenerate(prompts = {}) {
   if (!isDryRun) {
     const defaultOutput = tipo === 'changelog' ? 'CHANGELOG.md' : 'PAP.md';
     outputPath = await _input({
-      message: `Ruta de salida del archivo:`,
+      message: t('wizard.generate.outputPath'),
       default: defaultOutput,
     });
   }
 
   // 6. Verbose
   const verbose = await _confirm({
-    message: '¿Activar modo verboso? (incluye más tipos de commit)',
+    message: t('wizard.generate.confirmVerbose'),
     default: false,
   });
 
   // --- Compilar opciones ---
-  const options = {
+  const genOptions = {
     from: fromRef || undefined,
     to: toRef === 'HEAD' ? undefined : toRef,
     scope: scopeFilter || undefined,
     dryRun: isDryRun,
     output: outputPath || undefined,
     verbose,
+    lang: options.lang,
   };
 
   console.log();
@@ -237,24 +283,25 @@ export async function runWizardGenerate(prompts = {}) {
     try {
       const { runPipeline } = await import('./pipeline.js');
       const parsedCommits = [];
-      for await (const commit of runPipeline(tipo, options)) {
+      for await (const commit of runPipeline(tipo, genOptions)) {
         parsedCommits.push(commit);
       }
       const markdown = await renderDocument(parsedCommits, tipo, {
-        scope: options.scope,
-        verbose: options.verbose,
+        scope: genOptions.scope,
+        verbose: genOptions.verbose,
+        i18nInstance: activeI18n,
       });
 
-      console.log(pc.yellow('⚠  Modo previsualización — no se escribirán archivos físicos.\n'));
+      console.log(pc.yellow(t('wizard.generate.previewNotice')));
       console.log(pc.dim('─'.repeat(60)));
       console.log(markdown);
       console.log(pc.dim('─'.repeat(60)));
     } catch (err) {
-      console.error(pc.red(`\n❌ Error durante la previsualización: ${err.message}\n`));
+      console.error(pc.red(t('wizard.generate.previewError', { error: err.message })));
       process.exit(1);
     }
   } else {
     // Persistir: delegar en el pipeline completo
-    await runGenerate(tipo, options);
+    await runGenerate(tipo, genOptions);
   }
 }
