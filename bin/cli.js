@@ -108,7 +108,7 @@ program
   .option('--json', t('cli.topology.json'))
   .action(async (branchArg, options, cmd) => {
     const rawPositional = typeof branchArg === 'string' && branchArg.trim().length > 0 ? branchArg.trim() : null;
-    const baseBranch = options.base || (rawPositional && !options.branch ? rawPositional : undefined);
+    const baseBranch = options.base || rawPositional || undefined;
     const branchFilter = options.branch;
     const mergedOpts = {
       ...(cmd.optsWithGlobals ? cmd.optsWithGlobals() : {}),

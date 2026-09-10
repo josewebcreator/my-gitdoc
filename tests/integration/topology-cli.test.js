@@ -164,4 +164,13 @@ test('CLI Topology Error - fails when --base branch is not found (localized)', a
   assert.ok(stderr.includes('No se encontró la rama especificada "base-inexistente".'));
 });
 
+test('CLI Topology - combines positional base branch with -b filter', async () => {
+  const { code, stdout } = await runCli('topology dev -b feat/hito-11 --lang es');
+  assert.strictEqual(code, 0);
+  assert.ok(stdout.includes('Rama Base:'));
+  assert.ok(stdout.includes('dev'));
+  assert.ok(stdout.includes('feat/hito-11'));
+});
+
+
 

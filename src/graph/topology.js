@@ -265,9 +265,11 @@ export function getBranchCommits(fromHash, stopHash, dag) {
 export function detectBaseBranch(branches = [], options = {}) {
   if (options.baseBranch) {
     if (branches.length === 0) return options.baseBranch;
-    const match = branches.find(
-      (b) => b.name.toLowerCase() === options.baseBranch.toLowerCase()
-    );
+    const requested = options.baseBranch.toLowerCase();
+    let match = branches.find((b) => b.name.toLowerCase() === requested);
+    if (!match) {
+      match = branches.find((b) => b.name.toLowerCase().includes(requested));
+    }
     if (match) return match.name;
     throw new Error(t('topology.errors.branchNotFound', { branch: options.baseBranch }));
   }
