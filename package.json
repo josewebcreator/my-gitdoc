@@ -8,7 +8,8 @@
     "url": "https://github.com/josewebcreator/my-gitdoc.git"
   },
   "bin": {
-    "tu-doc-cli": "./bin/cli.js"
+    "tu-doc-cli": "./bin/cli.js",
+    "gitdoc": "./bin/cli.js"
   },
   "files": [
     "bin",

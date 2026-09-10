@@ -50,9 +50,40 @@ El CLI expone tres comandos principales:
 - pnpm o npm.
 - Git instalado y disponible en el PATH del sistema.
 
-### Instalación / Ejecución Local
-Para probar el ejecutable local en desarrollo:
+### Instalación y Ejecución
+
+`tu-doc-cli` está diseñado para instalarse como paquete de Node/npm y puede ejecutarse de tres formas:
+
+#### 1. Instalación Global (Recomendado para uso cotidiano)
+Instala el paquete globalmente para tener el comando disponible en cualquier repositorio o terminal:
 ```bash
+npm install -g tu-doc-cli
+# o con pnpm:
+pnpm add -g tu-doc-cli
+```
+Una vez instalado globalmente, puedes usar directamente el comando `tu-doc-cli` o su alias corto `gitdoc`:
+```bash
+tu-doc-cli [comando] [opciones]
+# o
+gitdoc [comando] [opciones]
+```
+
+#### 2. Ejecución Bajo Demanda con `npx` (Sin instalación previa)
+Puedes ejecutar cualquier comando directamente en un repositorio sin instalar el paquete de forma permanente:
+```bash
+npx tu-doc-cli [comando] [opciones]
+```
+
+#### 3. Desarrollo Local (Desde el repositorio clonado)
+Si estás desarrollando o colaborando en el código fuente de `tu-doc-cli`:
+```bash
+# Enlazar el binario localmente de forma global
+npm link
+
+# Luego invocar directamente:
+tu-doc-cli [comando] [opciones]
+
+# O ejecutar directamente con Node durante el desarrollo:
 node bin/cli.js [comando] [opciones]
 ```
 
@@ -62,7 +93,9 @@ node bin/cli.js [comando] [opciones]
 
 El Asistente Interactivo proporciona una experiencia guiada mediante selección de menús y preguntas:
 ```bash
-node bin/cli.js wizard
+tu-doc-cli wizard
+# o con npx:
+# npx tu-doc-cli wizard
 ```
 
 Al ejecutarse sin subcomandos, el wizard despliega un menú inicial con 3 opciones:
@@ -75,7 +108,7 @@ También puedes invocar directamente cualquiera de los tres flujos:
 ### Flujo `wizard init`
 Configura interactivamente tu archivo `.gitdocrc.json`:
 ```bash
-node bin/cli.js wizard init
+tu-doc-cli wizard init
 ```
 - Selección de idioma predeterminado (`es` / `en`).
 - Selección de rama base de referencia (ej. `main`, `dev`).
@@ -86,7 +119,7 @@ node bin/cli.js wizard init
 ### Flujo `wizard generate`
 Guía paso a paso para generar documentación:
 ```bash
-node bin/cli.js wizard generate
+tu-doc-cli wizard generate
 ```
 - Tipo de documento (`changelog` o `pap`).
 - Rango de revisiones (`--from` y `--to`) seleccionable entre los tags y ramas del repo.
@@ -97,9 +130,11 @@ node bin/cli.js wizard generate
 ### Flujo `wizard topology` (alias `wizard graph`)
 Guía interactiva para auditar el grafo de ramas:
 ```bash
-node bin/cli.js wizard topology
+tu-doc-cli wizard topology
 # o
-node bin/cli.js wizard graph
+tu-doc-cli wizard graph
+# o usando el alias:
+gitdoc wizard topology
 ```
 - Selección de la rama base de referencia.
 - Aislamiento opcional a una rama específica.
@@ -113,7 +148,7 @@ node bin/cli.js wizard graph
 
 Estructura del comando:
 ```bash
-node bin/cli.js generate <tipo> [opciones]
+tu-doc-cli generate <tipo> [opciones]
 ```
 
 ### 1. Argumento obligatorio: `<tipo>`
@@ -122,7 +157,7 @@ Define el tipo de documento a generar:
 *   `pap`: Para generar el Procedimiento de Puesta en Producción con directivas de infraestructura y despliegue.
 
 > [!WARNING]
-> Si se especifica un tipo inválido o ausente (por ejemplo, `node bin/cli.js generate invalid`), el programa imprimirá un error descriptivo en color rojo en `stderr` y abortará la ejecución con código de salida `1`.
+> Si se especifica un tipo inválido o ausente (por ejemplo, `tu-doc-cli generate invalid`), el programa imprimirá un error descriptivo en color rojo en `stderr` y abortará la ejecución con código de salida `1`.
 
 ### 2. Opciones y Banderas Disponibles
 | Opción | Alias | Descripción |
@@ -139,22 +174,22 @@ Define el tipo de documento a generar:
 ### Ejemplos de Uso
 ```bash
 # Previsualizar CHANGELOG en consola
-node bin/cli.js generate changelog --dry-run
+tu-doc-cli generate changelog --dry-run
 
 # Previsualizar PAP en consola
-node bin/cli.js generate pap --dry-run
+tu-doc-cli generate pap --dry-run
 
 # Filtrar por rango de commits o tags
-node bin/cli.js generate changelog --from v1.0.0 --to HEAD --dry-run
+tu-doc-cli generate changelog --from v1.0.0 --to HEAD --dry-run
 
 # Modo verboso (incluye cuerpo de los commits)
-node bin/cli.js generate changelog --verbose --dry-run
+tu-doc-cli generate changelog --verbose --dry-run
 
 # Guardar en archivo
-node bin/cli.js generate changelog --output docs/release/CHANGELOG.md
+tu-doc-cli generate changelog --output docs/release/CHANGELOG.md
 
 # Usar plantilla personalizada
-node bin/cli.js generate changelog --template templates/custom-changelog.hbs --dry-run
+tu-doc-cli generate changelog --template templates/custom-changelog.hbs --dry-run
 ```
 
 ---
@@ -165,7 +200,7 @@ El CLI implementa soporte bilingüe nativo en **español (`es`)** e **inglés (`
 
 ### Orden de Precedencia Jerárquica
 El idioma se determina evaluando estrictamente las siguientes fuentes en orden de prioridad:
-1. **Bandera explícita en CLI:** `-l, --lang <es|en>` (ej. `node bin/cli.js generate changelog --lang en`).
+1. **Bandera explícita en CLI:** `-l, --lang <es|en>` (ej. `tu-doc-cli generate changelog --lang en`).
 2. **Archivo de configuración `.gitdocrc.json`:** Propiedad `"locale": "es"` o `"locale": "en"`.
 3. **Variables de entorno del Sistema Operativo:** Detección automática de `LC_ALL`, `LC_MESSAGES` o `LANG`.
 4. **Fallback predeterminado:** Inglés (`en`).
@@ -197,8 +232,10 @@ El comando `topology` (alias `graph`) reconstruye el Grafo Acíclico Dirigido (D
 
 ### Sintaxis
 ```bash
-node bin/cli.js topology [rama-base] [opciones]
-node bin/cli.js graph [rama-base] [opciones]
+tu-doc-cli topology [rama-base] [opciones]
+tu-doc-cli graph [rama-base] [opciones]
+# o usando el alias:
+gitdoc topology [rama-base] [opciones]
 ```
 
 ### Opciones de Topología
@@ -291,7 +328,7 @@ La búsqueda es **insensible a mayúsculas** y aplica sobre `subject` y `body`:
 
 #### Ejemplo de error del linter
 ```bash
-node bin/cli.js generate changelog --dry-run
+tu-doc-cli generate changelog --dry-run
 ```
 *Si hay un commit con "hack" en el subject:*
 ```
@@ -499,8 +536,40 @@ The CLI exposes three primary commands:
 - pnpm or npm.
 - Git installed and accessible in your system PATH.
 
-### Local Execution
+### Installation & Execution
+
+`tu-doc-cli` is distributed as an npm package and can be run globally, on-demand with `npx`, or in local development:
+
+#### 1. Global Installation (Recommended for regular use)
+Install the package globally to make the command available across any repository or terminal:
 ```bash
+npm install -g tu-doc-cli
+# or with pnpm:
+pnpm add -g tu-doc-cli
+```
+Once installed globally, you can invoke `tu-doc-cli` directly or use the shorter `gitdoc` alias:
+```bash
+tu-doc-cli [command] [options]
+# or
+gitdoc [command] [options]
+```
+
+#### 2. On-Demand Execution with `npx` (No installation required)
+Execute any command directly inside any repository without installing globally:
+```bash
+npx tu-doc-cli [command] [options]
+```
+
+#### 3. Local Development (From cloned repository)
+If you are developing or contributing to the `tu-doc-cli` codebase:
+```bash
+# Link the local binary globally
+npm link
+
+# Then run directly:
+tu-doc-cli [command] [options]
+
+# Or invoke directly with Node during development:
 node bin/cli.js [command] [options]
 ```
 
@@ -510,7 +579,9 @@ node bin/cli.js [command] [options]
 
 Launch the interactive assistant:
 ```bash
-node bin/cli.js wizard
+tu-doc-cli wizard
+# or with npx:
+# npx tu-doc-cli wizard
 ```
 
 When invoked without subcommands, an interactive menu presents 3 choices:
@@ -523,7 +594,7 @@ You can also run each flow directly:
 ### `wizard init`
 Interactively configures your `.gitdocrc.json` file:
 ```bash
-node bin/cli.js wizard init
+tu-doc-cli wizard init
 ```
 - Default language selection (`es` / `en`).
 - Base reference branch selection (e.g. `main`, `dev`).
@@ -534,7 +605,7 @@ node bin/cli.js wizard init
 ### `wizard generate`
 Step-by-step guided documentation generation:
 ```bash
-node bin/cli.js wizard generate
+tu-doc-cli wizard generate
 ```
 - Document type (`changelog` or `pap`).
 - Revision range (`--from` and `--to`) selectable from repository tags and branches.
@@ -545,9 +616,11 @@ node bin/cli.js wizard generate
 ### `wizard topology` (alias `wizard graph`)
 Guided interactive branch and contributor auditing:
 ```bash
-node bin/cli.js wizard topology
+tu-doc-cli wizard topology
 # or
-node bin/cli.js wizard graph
+tu-doc-cli wizard graph
+# or using the alias:
+gitdoc wizard topology
 ```
 - Base reference branch selection.
 - Optional branch isolation.
@@ -561,7 +634,7 @@ node bin/cli.js wizard graph
 
 Command syntax:
 ```bash
-node bin/cli.js generate <type> [options]
+tu-doc-cli generate <type> [options]
 ```
 
 ### `<type>` Argument:
@@ -583,22 +656,22 @@ node bin/cli.js generate <type> [options]
 ### Examples
 ```bash
 # Preview changelog in terminal
-node bin/cli.js generate changelog --dry-run
+tu-doc-cli generate changelog --dry-run
 
 # Preview PAP in terminal
-node bin/cli.js generate pap --dry-run
+tu-doc-cli generate pap --dry-run
 
 # Filter by revision range
-node bin/cli.js generate changelog --from v1.0.0 --to HEAD --dry-run
+tu-doc-cli generate changelog --from v1.0.0 --to HEAD --dry-run
 
 # Verbose mode with commit bodies
-node bin/cli.js generate changelog --verbose --dry-run
+tu-doc-cli generate changelog --verbose --dry-run
 
 # Save to custom file path
-node bin/cli.js generate changelog --output docs/CHANGELOG.md
+tu-doc-cli generate changelog --output docs/CHANGELOG.md
 
 # Use custom Handlebars template
-node bin/cli.js generate changelog --template templates/custom.hbs --dry-run
+tu-doc-cli generate changelog --template templates/custom.hbs --dry-run
 ```
 
 ---
@@ -609,7 +682,7 @@ The CLI provides comprehensive native bilingual support in **Spanish (`es`)** an
 
 ### Precedence Hierarchy
 Language resolution strictly evaluates sources in the following order:
-1. **CLI Flag:** `-l, --lang <es|en>` (e.g. `node bin/cli.js generate changelog --lang en`).
+1. **CLI Flag:** `-l, --lang <es|en>` (e.g. `tu-doc-cli generate changelog --lang en`).
 2. **Configuration file `.gitdocrc.json`:** `"locale": "en"` or `"locale": "es"`.
 3. **OS Environment Variables:** Automatic detection from `LC_ALL`, `LC_MESSAGES`, or `LANG`.
 4. **Default Fallback:** English (`en`).
@@ -640,8 +713,10 @@ The `topology` command (alias `graph`) parses the Git DAG from local history to 
 
 ### Syntax
 ```bash
-node bin/cli.js topology [base-branch] [options]
-node bin/cli.js graph [base-branch] [options]
+tu-doc-cli topology [base-branch] [options]
+tu-doc-cli graph [base-branch] [options]
+# or with alias:
+gitdoc topology [base-branch] [options]
 ```
 
 ### Options
