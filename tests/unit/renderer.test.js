@@ -382,3 +382,69 @@ test('renderDocument changelog - NO aplica autolinking si remoteUrl no está def
 
   assert.ok(!md.includes('github.com'), 'no debe haber links de github sin remoteUrl');
 });
+
+// ---------------------------------------------------------------------------
+// Hito 12 — renderDocument graph
+// ---------------------------------------------------------------------------
+
+test('renderDocument graph - renders detailed gitGraph by default', async () => {
+  const topology = {
+    baseBranch: 'main',
+    branches: [
+      {
+        name: 'main',
+        isBase: true,
+        commits: [{ hash: 'c1111111', author: 'Ana', subject: 'init', timestamp: 10 }],
+      },
+    ],
+  };
+
+  const md = await renderDocument(topology, 'graph');
+  assert.ok(md.includes('```mermaid'));
+  assert.ok(md.includes('gitGraph'));
+  assert.ok(md.includes('| Rama |') || md.includes('| Branch |'));
+});
+
+test('renderDocument graph - renders flowchart LR when simplified is true', async () => {
+  const topology = {
+    baseBranch: 'main',
+    branches: [
+      {
+        name: 'main',
+        isBase: true,
+        commits: [{ hash: 'c1111111', author: 'Ana', subject: 'init', timestamp: 10 }],
+      },
+      {
+        name: 'feat/test',
+        isBase: false,
+        commits: [{ hash: 't1111111', author: 'Carlos', subject: 'test', timestamp: 20 }],
+      },
+    ],
+  };
+
+  const md = await renderDocument(topology, 'graph', { simplified: true });
+  assert.ok(md.includes('```mermaid'));
+  assert.ok(md.includes('flowchart LR'));
+  assert.ok(md.includes('classDef'));
+});
+
+test('renderDocument graph - preserves mermaid code block while autolinking markdown tables', async () => {
+  const topology = {
+    baseBranch: 'main',
+    branches: [
+      {
+        name: 'main',
+        isBase: true,
+        commits: [{ hash: 'a1b2c3d', author: 'Ana', subject: 'commit for #42', timestamp: 10 }],
+      },
+    ],
+  };
+
+  const md = await renderDocument(topology, 'graph', { remoteUrl: REMOTE_URL });
+  assert.ok(md.includes('```mermaid'));
+  // Ensure the mermaid code block itself is not corrupted with Markdown links
+  const mermaidMatch = md.match(/```mermaid([\s\S]*?)```/);
+  assert.ok(mermaidMatch, 'Mermaid block should exist');
+  assert.ok(!mermaidMatch[1].includes('[a1b2c3d]('), 'Mermaid block must NOT contain markdown links');
+});
+
