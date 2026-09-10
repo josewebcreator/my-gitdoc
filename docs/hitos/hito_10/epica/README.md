@@ -42,23 +42,23 @@ Actualmente, las cadenas de caracteres y mapeos como `TYPE_TITLES` en `src/rende
 ## 2. Tasks & Implementation Checklist
 
 ### 1. Módulo Core i18n y Diccionarios
-- [ ] 1.1 Crear directorio `src/i18n/` y catálogos nativos `src/i18n/locales/es.json` y `src/i18n/locales/en.json`.
-- [ ] 1.2 Implementar en `src/i18n/index.js` la resolución jerárquica de locale (`--lang` > `.gitdocrc.json` > `Intl`/entorno > fallback `en`).
-- [ ] 1.3 Implementar la función de traducción e interpolación `t(key, params)` con fallback automático a inglés.
-- [ ] 1.4 Implementar soporte para fusionar diccionarios locales definidos en la propiedad `"i18n"` de `.gitdocrc.json`.
+- [x] 1.1 Crear directorio `src/i18n/` y catálogos nativos `src/i18n/locales/es.json` y `src/i18n/locales/en.json`.
+- [x] 1.2 Implementar en `src/i18n/index.js` la resolución jerárquica de locale (`--lang` > `.gitdocrc.json` > `Intl`/entorno > fallback `en`).
+- [x] 1.3 Implementar la función de traducción e interpolación `t(key, params)` con fallback automático a inglés.
+- [x] 1.4 Implementar soporte para fusionar diccionarios locales definidos en la propiedad `"i18n"` de `.gitdocrc.json`.
 
 ### 2. Integración en Renderer y Plantillas
-- [ ] 2.1 Refactorizar `src/renderer.js` para eliminar el objeto estático `TYPE_TITLES` y consumir títulos de sección mediante `t()`.
-- [ ] 2.2 Actualizar las plantillas `templates/changelog.hbs` y `templates/pap.hbs` para usar encabezados internacionalizados.
-- [ ] 2.3 Traducir las etiquetas de directivas técnicas del PAP (`Ejecución:`, `Marcha Atrás:`, `Pruebas de Humo:`).
+- [x] 2.1 Refactorizar `src/renderer.js` para eliminar el objeto estático `TYPE_TITLES` y consumir títulos de sección mediante `t()`.
+- [x] 2.2 Actualizar las plantillas `templates/changelog.hbs` y `templates/pap.hbs` para usar encabezados internacionalizados.
+- [x] 2.3 Traducir las etiquetas de directivas técnicas del PAP (`Ejecución:`, `Marcha Atrás:`, `Pruebas de Humo:`).
 
 ### 3. Integración en CLI y Wizard Interactivo
-- [ ] 3.1 Registrar la bandera global `-l, --lang <código>` en `bin/cli.js` y propagarla al pipeline.
-- [ ] 3.2 Localizar los mensajes de retroalimentación en consola (`picocolors`) en `src/pipeline.js` y `bin/cli.js`.
-- [ ] 3.3 Refactorizar las preguntas y opciones de selección de `@inquirer/prompts` en `src/wizard.js` usando `t()`.
-- [ ] 3.4 Añadir pregunta de selección de idioma en el flujo `runWizardInit()` si no existe en `.gitdocrc.json`.
+- [x] 3.1 Registrar la bandera global `-l, --lang <código>` en `bin/cli.js` y propagarla al pipeline.
+- [x] 3.2 Localizar los mensajes de retroalimentación en consola (`picocolors`) en `src/pipeline.js` y `bin/cli.js`.
+- [x] 3.3 Refactorizar las preguntas y opciones de selección de `@inquirer/prompts` en `src/wizard.js` usando `t()`.
+- [x] 3.4 Añadir pregunta de selección de idioma en el flujo `runWizardInit()` si no existe en `.gitdocrc.json`.
 
 ### 4. Pruebas y Validación
-- [ ] 4.1 Crear `tests/unit/i18n.test.js` verificando precedencia de idiomas y resolución de claves anidadas.
-- [ ] 4.2 Probar escenarios de fallback cuando se solicitan claves inexistentes o idiomas no soportados.
-- [ ] 4.3 Validar que `npm test` ejecute con 100% de éxito en todos los flujos adaptados.
+- [x] 4.1 Crear `tests/unit/i18n.test.js` verificando precedencia de idiomas y resolución de claves anidadas.
+- [x] 4.2 Probar escenarios de fallback cuando se solicitan claves inexistentes o idiomas no soportados.
+- [x] 4.3 Validar que `npm test` ejecute con 100% de éxito en todos los flujos adaptados.
