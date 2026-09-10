@@ -203,3 +203,44 @@ test('analyzeTopologyData - Scenario: Acotación temporal por fecha (--since y -
   assert.strictEqual(resultUntilDay.branches[0].commits.length, 2);
 });
 
+test('analyzeTopologyData - distinguishes merged and unmerged commits and resolves fast-forward fork points', () => {
+  // m1 -> a1 -> b1 (feature/prev) -> c1 -> c2 (feature/merged) -> dev (base tip)
+  //          \-> d1 (feature/diverged)
+  const branches = [
+    { name: 'dev', targetCommit: 'devTip', isCurrent: true },
+    { name: 'feature/prev', targetCommit: 'b1' },
+    { name: 'feature/merged', targetCommit: 'c2' },
+    { name: 'feature/diverged', targetCommit: 'd1' },
+  ];
+  const commits = [
+    { hash: 'devTip', parents: ['c2'], author: 'Ana', timestamp: 600, subject: 'dev commit' },
+    { hash: 'c2', parents: ['c1'], author: 'Carlos', timestamp: 500, subject: 'feat: c2' },
+    { hash: 'c1', parents: ['b1'], author: 'Carlos', timestamp: 400, subject: 'feat: c1' },
+    { hash: 'd1', parents: ['a1'], author: 'David', timestamp: 350, subject: 'feat: d1' },
+    { hash: 'b1', parents: ['a1'], author: 'Bob', timestamp: 300, subject: 'feat: b1' },
+    { hash: 'a1', parents: ['m1'], author: 'Ana', timestamp: 200, subject: 'feat: a1' },
+    { hash: 'm1', parents: [], author: 'Ana', timestamp: 100, subject: 'init' },
+  ];
+
+  const result = analyzeTopologyData(branches, commits);
+
+  // feature/merged (fast-forward merge into dev)
+  const mergedBranch = result.branches.find((b) => b.name === 'feature/merged');
+  assert.strictEqual(mergedBranch.status, 'merged');
+  assert.strictEqual(mergedBranch.forkPoint, 'b1'); // Forked from feature/prev!
+  assert.strictEqual(mergedBranch.mergedCount, 2);
+  assert.strictEqual(mergedBranch.unmergedCount, 0);
+  assert.strictEqual(mergedBranch.commits.length, 2);
+  assert.deepStrictEqual(mergedBranch.mergedCommits.map((c) => c.hash), ['c2', 'c1']);
+  assert.deepStrictEqual(mergedBranch.unmergedCommits, []);
+
+  // feature/diverged
+  const divBranch = result.branches.find((b) => b.name === 'feature/diverged');
+  assert.strictEqual(divBranch.status, 'diverged');
+  assert.strictEqual(divBranch.forkPoint, 'a1');
+  assert.strictEqual(divBranch.mergedCount, 0);
+  assert.strictEqual(divBranch.unmergedCount, 1);
+  assert.deepStrictEqual(divBranch.unmergedCommits.map((c) => c.hash), ['d1']);
+});
+
+

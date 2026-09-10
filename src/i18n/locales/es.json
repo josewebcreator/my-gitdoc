@@ -66,7 +66,13 @@
       "typesLabel": "Tipos:",
       "scopesLabel": "Scopes:",
       "branchesLabel": "Ramas:",
-      "generalScope": "general"
+      "generalScope": "general",
+      "mergedSummary": "{merged} mezclados, {unmerged} no mezclados",
+      "behindCount": "({behind} detrás)",
+      "unmergedLabel": "↳ No mezclados:",
+      "mergedLabel": "↳ Mezclados:",
+      "moreCommits": "... (+{count} más)",
+      "baseLabel": "rama base"
     },
     "wizard": {
       "description": "Asistente interactivo de configuración y generación de documentación",

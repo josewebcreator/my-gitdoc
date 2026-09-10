@@ -345,6 +345,12 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
     status: 'active',
     mergeCommit: null,
     commits: baseCommits,
+    mergedCommits: baseCommits,
+    unmergedCommits: [],
+    mergedCount: baseCommits.length,
+    unmergedCount: 0,
+    aheadCount: 0,
+    behindCount: 0,
   };
   analyzedBranches.push(baseAnalysis);
 
@@ -375,8 +381,28 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
         }
       }
 
+      // Si no hubo merge commit explícito (fast-forward o commit lineal en la base)
       if (!forkPoint) {
-        forkPoint = findLcaInDag(baseTip, branchTip, dag, baseAncestors);
+        if (branchTip === baseTip) {
+          forkPoint = null;
+        } else {
+          // Encontrar la rama antecesora más cercana en el tiempo
+          let closestAncestor = null;
+          let maxTs = -1;
+          for (const other of branches) {
+            if (other.name === branch.name) continue;
+            if (other.targetCommit === branchTip) continue;
+            if (isAncestor(other.targetCommit, branchTip, dag)) {
+              const node = dag.get(other.targetCommit);
+              const ts = node?.timestamp || 0;
+              if (ts > maxTs) {
+                maxTs = ts;
+                closestAncestor = other.targetCommit;
+              }
+            }
+          }
+          forkPoint = closestAncestor;
+        }
       }
     } else {
       // Rama no fusionada: calcular forkPoint respecto a baseTip
@@ -400,6 +426,17 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
       c.branches.add(branch.name);
     }
 
+    const mergedCommits = branchCommits.filter((c) => baseAncestors.has(c.hash));
+    const unmergedCommits = branchCommits.filter((c) => !baseAncestors.has(c.hash));
+
+    // Calcular atraso respecto a la rama base (behind)
+    let behindCount = 0;
+    if (forkPoint) {
+      behindCount = getBranchCommits(baseTip, forkPoint, dag).length;
+    } else if (isMergedIntoBase && branchTip !== baseTip) {
+      behindCount = getBranchCommits(baseTip, branchTip, dag).length;
+    }
+
     analyzedBranches.push({
       name: branch.name,
       targetCommit: branchTip,
@@ -411,6 +448,12 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
       status,
       mergeCommit,
       commits: branchCommits,
+      mergedCommits,
+      unmergedCommits,
+      mergedCount: mergedCommits.length,
+      unmergedCount: unmergedCommits.length,
+      aheadCount: unmergedCommits.length,
+      behindCount,
     });
   }
 
@@ -486,6 +529,11 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
   const divergedCount = filteredBranches.filter((b) => b.status === 'diverged').length;
   const allUniqueCommits = new Set();
   for (const b of filteredBranches) {
+    b.mergedCommits = b.commits.filter((c) => baseAncestors.has(c.hash));
+    b.unmergedCommits = b.commits.filter((c) => !baseAncestors.has(c.hash));
+    b.mergedCount = b.mergedCommits.length;
+    b.unmergedCount = b.unmergedCommits.length;
+    b.aheadCount = b.unmergedCount;
     for (const c of b.commits) {
       allUniqueCommits.add(c.hash);
     }
@@ -559,12 +607,49 @@ export function printTopologyReport(topo, metrics) {
       : '';
     const isCurrentStr = b.isCurrent ? pc.cyan(' *') : '';
 
+    if (b.isBase) {
+      console.log(
+        `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge} — ${t('cli.topology.commitsCount', {
+          count: b.commits.length,
+        })} (${t('cli.topology.baseLabel')})`
+      );
+      continue;
+    }
+
+    const behindStr = b.behindCount > 0 ? ` ${pc.dim(t('cli.topology.behindCount', { behind: b.behindCount }))}` : '';
+    const summaryStr = t('cli.topology.mergedSummary', {
+      merged: pc.blue(b.mergedCount ?? 0),
+      unmerged: pc.yellow(b.unmergedCount ?? 0),
+    });
+
     console.log(
-      `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${t(
-        'cli.topology.commitsCount',
-        { count: b.commits.length }
-      )}`
+      `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${summaryStr}${behindStr}`
     );
+
+    const unmergedList = b.unmergedCommits || [];
+    const mergedList = b.mergedCommits || [];
+
+    if (unmergedList.length > 0) {
+      console.log(`    ${pc.yellow(t('cli.topology.unmergedLabel'))}`);
+      const preview = unmergedList.slice(0, 5);
+      for (const c of preview) {
+        console.log(`      • ${pc.dim(c.hash.substring(0, 7))} ${c.subject}`);
+      }
+      if (unmergedList.length > 5) {
+        console.log(`      ${pc.dim(t('cli.topology.moreCommits', { count: unmergedList.length - 5 }))}`);
+      }
+    }
+
+    if (mergedList.length > 0) {
+      console.log(`    ${pc.blue(t('cli.topology.mergedLabel'))}`);
+      const preview = mergedList.slice(0, 5);
+      for (const c of preview) {
+        console.log(`      • ${pc.dim(c.hash.substring(0, 7))} ${c.subject}`);
+      }
+      if (mergedList.length > 5) {
+        console.log(`      ${pc.dim(t('cli.topology.moreCommits', { count: mergedList.length - 5 }))}`);
+      }
+    }
   }
 
   console.log(`\n${pc.bold(t('cli.topology.collaboratorsHeading'))}`);
