@@ -5,8 +5,10 @@ import { select, checkbox, input, confirm } from '@inquirer/prompts';
 import { simpleGit } from 'simple-git';
 import { runGenerate } from './pipeline.js';
 import { renderDocument } from './renderer.js';
-import { getCommits } from './git.js';
+import { getCommits, getAllBranches } from './git.js';
 import { parseCommit } from './parser.js';
+import { detectBaseBranch, extractTopology, printTopologyReport } from './graph/topology.js';
+import { analyzeCollaborators } from './graph/collaborators.js';
 import { initI18n, t } from './i18n/index.js';
 import pc from 'picocolors';
 
@@ -112,6 +114,11 @@ export async function runWizardInit(prompts = {}, options = {}) {
     default: existingConfig.allowedScopes ? existingConfig.allowedScopes.join(', ') : '',
   });
 
+  const baseBranchAnswer = await _input({
+    message: t('wizard.init.baseBranch'),
+    default: existingConfig.baseBranch || 'main',
+  });
+
   // Hito 10 Task 3.4: Preguntar idioma por defecto si no existe en .gitdocrc.json
   let selectedLocale = existingConfig.locale;
   if (!existingConfig.locale) {
@@ -135,6 +142,7 @@ export async function runWizardInit(prompts = {}, options = {}) {
   const config = {};
   if (selectedLocale) config.locale = selectedLocale;
   if (remoteUrl.trim()) config.remoteUrl = remoteUrl.trim();
+  if (baseBranchAnswer && baseBranchAnswer.trim()) config.baseBranch = baseBranchAnswer.trim();
   if (allowedTypesAnswer.length > 0) config.allowedTypes = allowedTypesAnswer;
   if (scopesRaw.trim()) {
     config.allowedScopes = scopesRaw.split(',').map(s => s.trim()).filter(Boolean);
@@ -305,3 +313,130 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     await runGenerate(tipo, genOptions);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Flujo 3: Topología guiada — análisis interactivo de ramas y colaboradores
+// ---------------------------------------------------------------------------
+
+/**
+ * Guía al usuario de forma interactiva para analizar la topología del repositorio,
+ * seleccionar rama base, aplicar filtros y visualizar el reporte o JSON.
+ *
+ * @param {object} [prompts] - Inyección de dependencias de prompts (para testing).
+ * @param {object} [options] - Opciones de CLI (ej. options.lang)
+ */
+export async function runWizardTopology(prompts = {}, options = {}) {
+  const _select  = prompts.select  ?? select;
+  const _input   = prompts.input   ?? input;
+  const _confirm = prompts.confirm ?? confirm;
+
+  // Cargar .gitdocrc.json para configurar i18n
+  const configPath = resolve(process.cwd(), '.gitdocrc.json');
+  let existingConfig = {};
+  if (existsSync(configPath)) {
+    try {
+      existingConfig = JSON.parse(await readFile(configPath, 'utf-8'));
+    } catch {}
+  }
+
+  initI18n({
+    lang: options.lang,
+    configLocale: existingConfig.locale,
+    customCatalogs: existingConfig.i18n,
+  });
+
+  console.log(pc.cyan(t('wizard.topology.header')));
+
+  // 1. Obtener ramas disponibles
+  let branches = [];
+  try {
+    branches = await getAllBranches(options);
+  } catch (err) {
+    console.error(pc.red(`\n✖ Error: ${err.message}\n`));
+    process.exit(1);
+  }
+
+  const detectedBase = detectBaseBranch(branches, { baseBranch: existingConfig.baseBranch });
+  const branchChoices = branches.map((b) => ({
+    name: `${b.name}${b.name === detectedBase ? ' (default)' : ''}`,
+    value: b.name,
+  }));
+
+  // 2. Selección de rama base
+  const selectedBase = await _select({
+    message: t('wizard.topology.selectBase'),
+    choices: branchChoices.length > 0 ? branchChoices : [{ name: 'main', value: 'main' }],
+    default: detectedBase,
+  });
+
+  // 3. Filtro opcional por rama específica
+  const filterBranchChoice = await _select({
+    message: t('wizard.topology.filterBranchPrompt'),
+    choices: [
+      { name: t('wizard.topology.allBranchesChoice'), value: '' },
+      ...branches.map((b) => ({ name: b.name, value: b.name })),
+    ],
+  });
+
+  // 4. Filtro opcional por autor
+  const authorAnswer = await _input({
+    message: t('wizard.topology.filterAuthorPrompt'),
+    default: '',
+  });
+
+  // 5. Filtro opcional por fechas
+  const wantDateFilter = await _confirm({
+    message: t('wizard.topology.askDateFilters'),
+    default: false,
+  });
+
+  let since = '';
+  let until = '';
+  if (wantDateFilter) {
+    since = await _input({
+      message: t('wizard.topology.sincePrompt'),
+      default: '',
+    });
+    until = await _input({
+      message: t('wizard.topology.untilPrompt'),
+      default: '',
+    });
+  }
+
+  // 6. Formato de salida
+  const format = await _select({
+    message: t('wizard.topology.selectFormat'),
+    choices: [
+      { name: t('wizard.topology.formatTerminal'), value: 'terminal' },
+      { name: t('wizard.topology.formatJson'), value: 'json' },
+    ],
+    default: 'terminal',
+  });
+
+  const topoOptions = {
+    ...options,
+    baseBranch: selectedBase,
+    branch: filterBranchChoice || undefined,
+    author: authorAnswer.trim() || undefined,
+    since: since.trim() || undefined,
+    until: until.trim() || undefined,
+    json: format === 'json',
+  };
+
+  try {
+    const topo = await extractTopology(topoOptions);
+    const metrics = analyzeCollaborators(topo, topoOptions);
+
+    if (format === 'json') {
+      console.log(JSON.stringify({ topology: topo, collaborators: metrics }, null, 2));
+      return { topology: topo, collaborators: metrics };
+    }
+
+    printTopologyReport(topo, metrics);
+    return { topology: topo, collaborators: metrics };
+  } catch (err) {
+    console.error(pc.red(`\n✖ Error: ${err.message}\n`));
+    process.exit(1);
+  }
+}
+

@@ -1,5 +1,6 @@
 import { getAllBranches, getMergeBase, getCommitsDag } from '../git.js';
 import { t } from '../i18n/index.js';
+import pc from 'picocolors';
 
 /**
  * @typedef {Object} CommitNode
@@ -514,3 +515,63 @@ export async function extractTopology(options = {}) {
 
   return analyzeTopologyData(branches, commitsList, options);
 }
+
+/**
+ * Imprime en terminal el reporte formateado de topología y colaboradores.
+ * @param {Object} topo
+ * @param {Object} metrics
+ */
+export function printTopologyReport(topo, metrics) {
+  console.log(`\n${pc.bold(pc.cyan(t('cli.topology.header')))}`);
+  console.log(`${pc.bold(t('cli.topology.baseBranch'))} ${pc.green(topo.baseBranch)}`);
+  console.log(
+    `${pc.bold(t('cli.topology.totalBranches'))} ${topo.summary.totalBranches} (${pc.green(
+      t('cli.topology.activeCount', { count: topo.summary.activeBranches })
+    )}, ${pc.blue(
+      t('cli.topology.mergedCount', { count: topo.summary.mergedBranches })
+    )}, ${pc.yellow(
+      t('cli.topology.divergedCount', { count: topo.summary.divergedBranches })
+    )})\n`
+  );
+
+  console.log(pc.bold(t('cli.topology.branchesHeading')));
+  for (const b of topo.branches) {
+    let statusBadge = pc.green(t('cli.topology.statusActive'));
+    if (b.status === 'merged') statusBadge = pc.blue(t('cli.topology.statusMerged'));
+    if (b.status === 'diverged') statusBadge = pc.yellow(t('cli.topology.statusDiverged'));
+
+    const forkStr = b.forkPoint
+      ? t('cli.topology.forkedAt', { hash: pc.dim(b.forkPoint.substring(0, 7)) })
+      : '';
+    const mergeStr = b.mergeCommit
+      ? t('cli.topology.mergedIn', { hash: pc.dim(b.mergeCommit.substring(0, 7)) })
+      : '';
+    const isCurrentStr = b.isCurrent ? pc.cyan(' *') : '';
+
+    console.log(
+      `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${t(
+        'cli.topology.commitsCount',
+        { count: b.commits.length }
+      )}`
+    );
+  }
+
+  console.log(`\n${pc.bold(t('cli.topology.collaboratorsHeading'))}`);
+  for (const col of metrics.global) {
+    const typesStr = Object.entries(col.types)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(', ');
+    const scopesStr = col.scopes.length > 0 ? col.scopes.join(', ') : t('cli.topology.generalScope');
+    console.log(
+      `  • ${pc.bold(col.name)} ${pc.dim(`<${col.email}>`)}: ${pc.cyan(
+        t('cli.topology.commitsCount', { count: col.commitsCount })
+      )}`
+    );
+    if (typesStr) console.log(`    ${pc.dim(t('cli.topology.typesLabel'))} ${typesStr}`);
+    console.log(`    ${pc.dim(t('cli.topology.scopesLabel'))} ${scopesStr}`);
+    if (col.branches.length > 0)
+      console.log(`    ${pc.dim(t('cli.topology.branchesLabel'))} ${col.branches.join(', ')}`);
+  }
+  console.log('');
+}
+

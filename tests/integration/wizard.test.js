@@ -12,7 +12,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { runWizardInit, runWizardGenerate } from '../../src/wizard.js';
+import { runWizardInit, runWizardGenerate, runWizardTopology } from '../../src/wizard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -313,3 +313,65 @@ test('wizard generate — tipo pap en dry-run no escribe archivos', async () => 
 
   // No comprobamos la existencia global de PAP.md para evitar flaky tests
 });
+
+test('wizard init — persiste baseBranch personalizada en .gitdocrc.json', async () => {
+  const configPath = path.resolve(projectRoot, '.gitdocrc.json');
+  try { await unlink(configPath); } catch {}
+
+  try {
+    const prompts = {
+      input: (opts) => {
+        if (opts.message.includes('URL') || opts.message.includes('Remote')) return Promise.resolve('https://github.com/test/repo');
+        if (opts.message.includes('base') || opts.message.includes('Base')) return Promise.resolve('dev');
+        return Promise.resolve('');
+      },
+      checkbox: mockCheckbox(['feat', 'fix']),
+      confirm: mockConfirm(true),
+    };
+
+    await runWizardInit(prompts);
+
+    assert.ok(fs.existsSync(configPath));
+    const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    assert.strictEqual(content.baseBranch, 'dev');
+  } finally {
+    try { await unlink(configPath); } catch {}
+  }
+});
+
+test('wizard topology — ejecuta análisis interactivo exitosamente con formato terminal', async () => {
+  const prompts = {
+    select: (opts) => {
+      if (opts.message.includes('base') || opts.message.includes('Base')) return Promise.resolve('main');
+      if (opts.message.includes('específica') || opts.message.includes('specific')) return Promise.resolve('');
+      if (opts.message.includes('formato') || opts.message.includes('format') || opts.message.includes('Format')) return Promise.resolve('terminal');
+      return Promise.resolve(opts.choices?.[0]?.value ?? '');
+    },
+    input: mockInput(''),
+    confirm: mockConfirm(false),
+  };
+
+  const res = await runWizardTopology(prompts, { lang: 'es' });
+  assert.ok(res.topology);
+  assert.ok(res.collaborators);
+  assert.strictEqual(res.topology.baseBranch, 'main');
+});
+
+test('wizard topology — ejecuta con formato JSON y filtros', async () => {
+  const prompts = {
+    select: (opts) => {
+      if (opts.message.includes('base') || opts.message.includes('Base')) return Promise.resolve('dev');
+      if (opts.message.includes('específica') || opts.message.includes('specific')) return Promise.resolve('');
+      if (opts.message.includes('formato') || opts.message.includes('format') || opts.message.includes('Format')) return Promise.resolve('json');
+      return Promise.resolve(opts.choices?.[0]?.value ?? '');
+    },
+    input: mockInput('Jose'),
+    confirm: mockConfirm(false),
+  };
+
+  const res = await runWizardTopology(prompts, { lang: 'en' });
+  assert.ok(res.topology);
+  assert.ok(res.collaborators);
+  assert.strictEqual(res.topology.baseBranch, 'dev');
+});
+

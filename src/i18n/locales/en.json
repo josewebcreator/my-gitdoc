@@ -71,7 +71,8 @@
     "wizard": {
       "description": "Interactive wizard for configuration and documentation generation",
       "init": "Interactively create or update .gitdocrc.json configuration file",
-      "generate": "Interactive guide to compile a CHANGELOG or PAP report"
+      "generate": "Interactive guide to compile a CHANGELOG or PAP report",
+      "topology": "Interactive guide for repository topological and contributor analysis"
     }
   },
   "sections": {
@@ -126,12 +127,14 @@
     "main": {
       "prompt": "What would you like to do?",
       "initChoice": "Initialize / update configuration (.gitdocrc.json)",
-      "generateChoice": "Generate documentation report (CHANGELOG / PAP)"
+      "generateChoice": "Generate documentation report (CHANGELOG / PAP)",
+      "topologyChoice": "Topological analysis of repository, branches, and contributors"
     },
     "init": {
       "header": "\n🔧  Initialization Wizard — Project Configuration\n",
       "existingConfigWarning": "⚠  Found existing .gitdocrc.json file. Current values will be shown as defaults.\n",
       "remoteUrl": "Remote repository URL (for commit/issue autolinking):",
+      "baseBranch": "Default main base branch (e.g. main, dev):",
       "allowedTypes": "Allowed commit types in this project:",
       "allowedScopes": "Allowed scopes (comma-separated, or leave empty for no restriction):",
       "selectLanguage": "Default language for documentation and messages:",
@@ -157,6 +160,19 @@
       "confirmVerbose": "Enable verbose mode? (includes more commit types)",
       "previewNotice": "⚠  Preview mode — no physical files will be written.\n",
       "previewError": "\n❌ Error during preview: {error}\n"
+    },
+    "topology": {
+      "header": "\n🌐  Topology Wizard — Branch & Contributor Analysis\n",
+      "selectBase": "Select the reference base branch:",
+      "filterBranchPrompt": "Would you like to isolate the analysis to a specific branch?",
+      "allBranchesChoice": "(all branches — global analysis)",
+      "filterAuthorPrompt": "Filter by collaborator (name or email, leave empty for all):",
+      "askDateFilters": "Would you like to filter by date range?",
+      "sincePrompt": "Start date (YYYY-MM-DD, leave empty to skip):",
+      "untilPrompt": "End date (YYYY-MM-DD, leave empty to skip):",
+      "selectFormat": "Select display format:",
+      "formatTerminal": "Formatted terminal report (with badges and contributor breakdown)",
+      "formatJson": "Structured JSON"
     }
   },
   "topology": {

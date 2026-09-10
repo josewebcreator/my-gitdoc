@@ -71,7 +71,8 @@
     "wizard": {
       "description": "Asistente interactivo de configuración y generación de documentación",
       "init": "Crear o actualizar el archivo de configuración .gitdocrc.json de forma interactiva",
-      "generate": "Guía interactiva para compilar un reporte CHANGELOG o PAP"
+      "generate": "Guía interactiva para compilar un reporte CHANGELOG o PAP",
+      "topology": "Guía interactiva para el análisis topológico del repositorio y colaboradores"
     }
   },
   "sections": {
@@ -126,12 +127,14 @@
     "main": {
       "prompt": "¿Qué deseas hacer?",
       "initChoice": "Inicializar / actualizar configuración (.gitdocrc.json)",
-      "generateChoice": "Generar un reporte de documentación (CHANGELOG / PAP)"
+      "generateChoice": "Generar un reporte de documentación (CHANGELOG / PAP)",
+      "topologyChoice": "Análisis topológico del repositorio, ramas y colaboradores"
     },
     "init": {
       "header": "\n🔧  Wizard de inicialización — Configuración del proyecto\n",
       "existingConfigWarning": "⚠  Se encontró un archivo .gitdocrc.json existente. Los valores actuales se mostrarán como default.\n",
       "remoteUrl": "URL remota del repositorio (para autolinking de commits/issues):",
+      "baseBranch": "Rama base principal por defecto (ej. main, dev):",
       "allowedTypes": "Tipos de commit permitidos en este proyecto:",
       "allowedScopes": "Scopes permitidos (separados por coma, o deja vacío para no restringir):",
       "selectLanguage": "Idioma por defecto para la documentación y mensajes:",
@@ -157,6 +160,19 @@
       "confirmVerbose": "¿Activar modo verboso? (incluye más tipos de commit)",
       "previewNotice": "⚠  Modo previsualización — no se escribirán archivos físicos.\n",
       "previewError": "\n❌ Error durante la previsualización: {error}\n"
+    },
+    "topology": {
+      "header": "\n🌐  Wizard de Topología — Análisis de Ramas y Colaboradores\n",
+      "selectBase": "Selecciona la rama base de referencia:",
+      "filterBranchPrompt": "¿Deseas aislar el análisis a una rama específica?",
+      "allBranchesChoice": "(todas las ramas — análisis global)",
+      "filterAuthorPrompt": "Filtrar por colaborador (nombre o email, deja vacío para todos):",
+      "askDateFilters": "¿Deseas acotar por rango de fechas?",
+      "sincePrompt": "Fecha inicial (YYYY-MM-DD, deja vacío para omitir):",
+      "untilPrompt": "Fecha final (YYYY-MM-DD, deja vacío para omitir):",
+      "selectFormat": "Selecciona el formato de visualización:",
+      "formatTerminal": "Reporte formateado en terminal (con badges e información de colaboradores)",
+      "formatJson": "JSON estructurado"
     }
   },
   "topology": {

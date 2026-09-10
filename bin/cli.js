@@ -4,11 +4,11 @@ import { resolve } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { Command, Help } from 'commander';
 import { runGenerate } from '../src/pipeline.js';
-import { runWizardInit, runWizardGenerate } from '../src/wizard.js';
+import { runWizardInit, runWizardGenerate, runWizardTopology } from '../src/wizard.js';
 import { select } from '@inquirer/prompts';
 import { t, initI18n } from '../src/i18n/index.js';
 import pc from 'picocolors';
-import { extractTopology } from '../src/graph/topology.js';
+import { extractTopology, printTopologyReport } from '../src/graph/topology.js';
 import { analyzeCollaborators } from '../src/graph/collaborators.js';
 
 // Pre-parsear -l o --lang de process.argv antes de configurar Commander
@@ -128,57 +128,7 @@ program
         return;
       }
 
-      console.log(`\n${pc.bold(pc.cyan(t('cli.topology.header')))}`);
-      console.log(`${pc.bold(t('cli.topology.baseBranch'))} ${pc.green(topo.baseBranch)}`);
-      console.log(
-        `${pc.bold(t('cli.topology.totalBranches'))} ${topo.summary.totalBranches} (${pc.green(
-          t('cli.topology.activeCount', { count: topo.summary.activeBranches })
-        )}, ${pc.blue(
-          t('cli.topology.mergedCount', { count: topo.summary.mergedBranches })
-        )}, ${pc.yellow(
-          t('cli.topology.divergedCount', { count: topo.summary.divergedBranches })
-        )})\n`
-      );
-
-      console.log(pc.bold(t('cli.topology.branchesHeading')));
-      for (const b of topo.branches) {
-        let statusBadge = pc.green(t('cli.topology.statusActive'));
-        if (b.status === 'merged') statusBadge = pc.blue(t('cli.topology.statusMerged'));
-        if (b.status === 'diverged') statusBadge = pc.yellow(t('cli.topology.statusDiverged'));
-
-        const forkStr = b.forkPoint
-          ? t('cli.topology.forkedAt', { hash: pc.dim(b.forkPoint.substring(0, 7)) })
-          : '';
-        const mergeStr = b.mergeCommit
-          ? t('cli.topology.mergedIn', { hash: pc.dim(b.mergeCommit.substring(0, 7)) })
-          : '';
-        const isCurrentStr = b.isCurrent ? pc.cyan(' *') : '';
-
-        console.log(
-          `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${t(
-            'cli.topology.commitsCount',
-            { count: b.commits.length }
-          )}`
-        );
-      }
-
-      console.log(`\n${pc.bold(t('cli.topology.collaboratorsHeading'))}`);
-      for (const col of metrics.global) {
-        const typesStr = Object.entries(col.types)
-          .map(([k, v]) => `${k}:${v}`)
-          .join(', ');
-        const scopesStr = col.scopes.length > 0 ? col.scopes.join(', ') : t('cli.topology.generalScope');
-        console.log(
-          `  • ${pc.bold(col.name)} ${pc.dim(`<${col.email}>`)}: ${pc.cyan(
-            t('cli.topology.commitsCount', { count: col.commitsCount })
-          )}`
-        );
-        if (typesStr) console.log(`    ${pc.dim(t('cli.topology.typesLabel'))} ${typesStr}`);
-        console.log(`    ${pc.dim(t('cli.topology.scopesLabel'))} ${scopesStr}`);
-        if (col.branches.length > 0)
-          console.log(`    ${pc.dim(t('cli.topology.branchesLabel'))} ${col.branches.join(', ')}`);
-      }
-      console.log('');
+      printTopologyReport(topo, metrics);
     } catch (err) {
       console.error(pc.red(`\n✖ Error: ${err.message}\n`));
       process.exit(1);
@@ -212,6 +162,16 @@ wizard
     await runWizardGenerate({}, opts);
   });
 
+wizard
+  .command('topology')
+  .alias('graph')
+  .description(t('cli.wizard.topology'))
+  .option(t('cli.langFlag'), t('cli.langOption'))
+  .action(async (_options, cmd) => {
+    const opts = cmd.optsWithGlobals ? cmd.optsWithGlobals() : {};
+    await runWizardTopology({}, opts);
+  });
+
 // Si se invoca `wizard` sin subcomando, preguntar cuál flujo iniciar
 wizard.action(async (_options, cmd) => {
   const opts = cmd.optsWithGlobals ? cmd.optsWithGlobals() : {};
@@ -223,12 +183,15 @@ wizard.action(async (_options, cmd) => {
     choices: [
       { name: t('wizard.main.initChoice'), value: 'init' },
       { name: t('wizard.main.generateChoice'), value: 'generate' },
+      { name: t('wizard.main.topologyChoice'), value: 'topology' },
     ],
   });
   if (flow === 'init') {
     await runWizardInit({}, opts);
-  } else {
+  } else if (flow === 'generate') {
     await runWizardGenerate({}, opts);
+  } else {
+    await runWizardTopology({}, opts);
   }
 });
 
