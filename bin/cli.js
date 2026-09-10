@@ -7,6 +7,9 @@ import { runGenerate } from '../src/pipeline.js';
 import { runWizardInit, runWizardGenerate } from '../src/wizard.js';
 import { select } from '@inquirer/prompts';
 import { t, initI18n } from '../src/i18n/index.js';
+import pc from 'picocolors';
+import { extractTopology } from '../src/graph/topology.js';
+import { analyzeCollaborators } from '../src/graph/collaborators.js';
 
 // Pre-parsear -l o --lang de process.argv antes de configurar Commander
 let cliLang;
@@ -84,6 +87,78 @@ program
   .action((tipo, options, cmd) => {
     const mergedOpts = { ...cmd.optsWithGlobals(), ...options };
     return runGenerate(tipo, mergedOpts);
+  });
+
+// ---------------------------------------------------------------------------
+// Topology / Graph command
+// ---------------------------------------------------------------------------
+
+program
+  .command('topology')
+  .alias('graph')
+  .description('Analizar y mostrar la topología del repositorio, ramas y colaboradores')
+  .option('-b, --branch <nombre>', 'Filtrar por nombre de rama')
+  .option('-a, --author <patrón>', 'Filtrar por colaborador (nombre o email)')
+  .option('--since <fecha>', 'Filtrar commits desde una fecha')
+  .option('--until <fecha>', 'Filtrar commits hasta una fecha')
+  .option('--from <ref>', 'Referencia inicial de commit')
+  .option('--to <ref>', 'Referencia final de commit')
+  .option('--json', 'Mostrar salida estructurada en formato JSON')
+  .action(async (options) => {
+    try {
+      const topo = await extractTopology(options);
+      const metrics = analyzeCollaborators(topo, options);
+
+      if (options.json) {
+        console.log(JSON.stringify({ topology: topo, collaborators: metrics }, null, 2));
+        return;
+      }
+
+      console.log(`\n${pc.bold(pc.cyan('🌐 Gitdoc — Análisis Topológico y Colaboradores'))}`);
+      console.log(`${pc.bold('📌 Rama Base:')} ${pc.green(topo.baseBranch)}`);
+      console.log(
+        `${pc.bold('🌿 Ramas Totales:')} ${topo.summary.totalBranches} (${pc.green(
+          `${topo.summary.activeBranches} activas`
+        )}, ${pc.blue(`${topo.summary.mergedBranches} fusionadas`)}, ${pc.yellow(
+          `${topo.summary.divergedBranches} divergentes`
+        )})\n`
+      );
+
+      console.log(pc.bold('Ramas:'));
+      for (const b of topo.branches) {
+        let statusBadge = pc.green('[activa]');
+        if (b.status === 'merged') statusBadge = pc.blue('[fusionada]');
+        if (b.status === 'diverged') statusBadge = pc.yellow('[divergente]');
+
+        const forkStr = b.forkPoint ? ` (bifurcada en ${pc.dim(b.forkPoint.substring(0, 7))})` : '';
+        const mergeStr = b.mergeCommit ? ` (merge: ${pc.dim(b.mergeCommit.substring(0, 7))})` : '';
+        const isCurrentStr = b.isCurrent ? pc.cyan(' *') : '';
+
+        console.log(
+          `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${b.commits.length} commits`
+        );
+      }
+
+      console.log(`\n${pc.bold('👥 Colaboradores:')}`);
+      for (const col of metrics.global) {
+        const typesStr = Object.entries(col.types)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(', ');
+        const scopesStr = col.scopes.length > 0 ? col.scopes.join(', ') : 'general';
+        console.log(
+          `  • ${pc.bold(col.name)} ${pc.dim(`<${col.email}>`)}: ${pc.cyan(
+            `${col.commitsCount} commits`
+          )}`
+        );
+        if (typesStr) console.log(`    ${pc.dim('Tipos:')} ${typesStr}`);
+        console.log(`    ${pc.dim('Scopes:')} ${scopesStr}`);
+        if (col.branches.length > 0) console.log(`    ${pc.dim('Ramas:')} ${col.branches.join(', ')}`);
+      }
+      console.log('');
+    } catch (err) {
+      console.error(pc.red(`\n✖ Error: ${err.message}\n`));
+      process.exit(1);
+    }
   });
 
 // ---------------------------------------------------------------------------
