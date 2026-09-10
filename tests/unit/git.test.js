@@ -96,7 +96,7 @@ test('getCommits - throws error when directory is not a git repo', async () => {
   isRepo = false;
   await assert.rejects(
     consume(getCommits()),
-    /El directorio actual no es un repositorio Git válido\./
+    /(?:El directorio actual no es un repositorio Git válido|The current directory is not a valid Git repository)\./
   );
 });
 
@@ -105,7 +105,7 @@ test('getCommits - throws error when repository has no commits', async () => {
   commitCount = '0';
   await assert.rejects(
     consume(getCommits()),
-    /El repositorio no tiene commits\./
+    /(?:El repositorio no tiene commits|The repository contains no commits)\./
   );
 });
 
@@ -145,7 +145,7 @@ test('getCommits - throws error when --to reference is invalid', async () => {
   
   await assert.rejects(
     consume(getCommits({ to: 'non-existent-to' })),
-    /La referencia "non-existent-to" no existe/
+    /(?:La referencia "non-existent-to" no existe|The reference "non-existent-to" does not exist)/
   );
 });
 
@@ -157,7 +157,7 @@ test('getCommits - throws error when --from reference is invalid', async () => {
   
   await assert.rejects(
     consume(getCommits({ from: 'non-existent-from' })),
-    /La referencia "non-existent-from" no existe/
+    /(?:La referencia "non-existent-from" no existe|The reference "non-existent-from" does not exist)/
   );
 });
 
@@ -203,7 +203,7 @@ test('getAllBranches - throws error when directory is not a git repo', async () 
   isRepo = false;
   await assert.rejects(
     getAllBranches(),
-    /El directorio actual no es un repositorio Git válido\./
+    /(?:El directorio actual no es un repositorio Git válido|The current directory is not a valid Git repository)\./
   );
 });
 
@@ -258,7 +258,7 @@ test('getCommitsDag - throws error when directory is not a git repo', async () =
   isRepo = false;
   await assert.rejects(
     consume(getCommitsDag()),
-    /El directorio actual no es un repositorio Git válido\./
+    /(?:El directorio actual no es un repositorio Git válido|The current directory is not a valid Git repository)\./
   );
 });
 
