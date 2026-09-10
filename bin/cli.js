@@ -94,7 +94,7 @@ program
 // ---------------------------------------------------------------------------
 
 program
-  .command('topology')
+  .command('topology [branch]')
   .alias('graph')
   .description(t('cli.topology.description'))
   .option(t('cli.langFlag'), t('cli.langOption'))
@@ -105,8 +105,13 @@ program
   .option(t('cli.topology.fromFlag'), t('cli.topology.from'))
   .option(t('cli.topology.toFlag'), t('cli.topology.to'))
   .option('--json', t('cli.topology.json'))
-  .action(async (options, cmd) => {
-    const mergedOpts = { ...(cmd.optsWithGlobals ? cmd.optsWithGlobals() : {}), ...options };
+  .action(async (branchArg, options, cmd) => {
+    const branch = typeof branchArg === 'string' && branchArg.length > 0 ? branchArg : options.branch;
+    const mergedOpts = {
+      ...(cmd.optsWithGlobals ? cmd.optsWithGlobals() : {}),
+      ...options,
+      ...(branch ? { branch } : {}),
+    };
     if (mergedOpts.lang) {
       initI18n({ lang: mergedOpts.lang });
     }

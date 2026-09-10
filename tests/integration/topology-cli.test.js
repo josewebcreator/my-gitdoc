@@ -136,3 +136,18 @@ test('CLI Topology Error - fails when --since format is invalid (localized)', as
     'Should display English invalidDate error'
   );
 });
+
+test('CLI Topology - supports branch as positional argument', async () => {
+  const { code, stdout } = await runCli('topology dev --lang es');
+  assert.strictEqual(code, 0);
+  assert.ok(stdout.includes('dev'));
+  assert.ok(stdout.includes('[divergente]'));
+  assert.ok(stdout.includes('Ramas Totales:'));
+});
+
+test('CLI Topology Error - fails when positional branch argument is not found', async () => {
+  const { code, stderr } = await runCli('topology rama-inexistente --lang es');
+  assert.strictEqual(code, 1);
+  assert.ok(stderr.includes('No se encontró la rama especificada "rama-inexistente".'));
+});
+
