@@ -96,63 +96,78 @@ program
 program
   .command('topology')
   .alias('graph')
-  .description('Analizar y mostrar la topología del repositorio, ramas y colaboradores')
-  .option('-b, --branch <nombre>', 'Filtrar por nombre de rama')
-  .option('-a, --author <patrón>', 'Filtrar por colaborador (nombre o email)')
-  .option('--since <fecha>', 'Filtrar commits desde una fecha')
-  .option('--until <fecha>', 'Filtrar commits hasta una fecha')
-  .option('--from <ref>', 'Referencia inicial de commit')
-  .option('--to <ref>', 'Referencia final de commit')
-  .option('--json', 'Mostrar salida estructurada en formato JSON')
-  .action(async (options) => {
+  .description(t('cli.topology.description'))
+  .option(t('cli.langFlag'), t('cli.langOption'))
+  .option(t('cli.topology.branchFlag'), t('cli.topology.branch'))
+  .option(t('cli.topology.authorFlag'), t('cli.topology.author'))
+  .option(t('cli.topology.sinceFlag'), t('cli.topology.since'))
+  .option(t('cli.topology.untilFlag'), t('cli.topology.until'))
+  .option(t('cli.topology.fromFlag'), t('cli.topology.from'))
+  .option(t('cli.topology.toFlag'), t('cli.topology.to'))
+  .option('--json', t('cli.topology.json'))
+  .action(async (options, cmd) => {
+    const mergedOpts = { ...(cmd.optsWithGlobals ? cmd.optsWithGlobals() : {}), ...options };
+    if (mergedOpts.lang) {
+      initI18n({ lang: mergedOpts.lang });
+    }
     try {
-      const topo = await extractTopology(options);
-      const metrics = analyzeCollaborators(topo, options);
+      const topo = await extractTopology(mergedOpts);
+      const metrics = analyzeCollaborators(topo, mergedOpts);
 
-      if (options.json) {
+      if (mergedOpts.json) {
         console.log(JSON.stringify({ topology: topo, collaborators: metrics }, null, 2));
         return;
       }
 
-      console.log(`\n${pc.bold(pc.cyan('🌐 Gitdoc — Análisis Topológico y Colaboradores'))}`);
-      console.log(`${pc.bold('📌 Rama Base:')} ${pc.green(topo.baseBranch)}`);
+      console.log(`\n${pc.bold(pc.cyan(t('cli.topology.header')))}`);
+      console.log(`${pc.bold(t('cli.topology.baseBranch'))} ${pc.green(topo.baseBranch)}`);
       console.log(
-        `${pc.bold('🌿 Ramas Totales:')} ${topo.summary.totalBranches} (${pc.green(
-          `${topo.summary.activeBranches} activas`
-        )}, ${pc.blue(`${topo.summary.mergedBranches} fusionadas`)}, ${pc.yellow(
-          `${topo.summary.divergedBranches} divergentes`
+        `${pc.bold(t('cli.topology.totalBranches'))} ${topo.summary.totalBranches} (${pc.green(
+          t('cli.topology.activeCount', { count: topo.summary.activeBranches })
+        )}, ${pc.blue(
+          t('cli.topology.mergedCount', { count: topo.summary.mergedBranches })
+        )}, ${pc.yellow(
+          t('cli.topology.divergedCount', { count: topo.summary.divergedBranches })
         )})\n`
       );
 
-      console.log(pc.bold('Ramas:'));
+      console.log(pc.bold(t('cli.topology.branchesHeading')));
       for (const b of topo.branches) {
-        let statusBadge = pc.green('[activa]');
-        if (b.status === 'merged') statusBadge = pc.blue('[fusionada]');
-        if (b.status === 'diverged') statusBadge = pc.yellow('[divergente]');
+        let statusBadge = pc.green(t('cli.topology.statusActive'));
+        if (b.status === 'merged') statusBadge = pc.blue(t('cli.topology.statusMerged'));
+        if (b.status === 'diverged') statusBadge = pc.yellow(t('cli.topology.statusDiverged'));
 
-        const forkStr = b.forkPoint ? ` (bifurcada en ${pc.dim(b.forkPoint.substring(0, 7))})` : '';
-        const mergeStr = b.mergeCommit ? ` (merge: ${pc.dim(b.mergeCommit.substring(0, 7))})` : '';
+        const forkStr = b.forkPoint
+          ? t('cli.topology.forkedAt', { hash: pc.dim(b.forkPoint.substring(0, 7)) })
+          : '';
+        const mergeStr = b.mergeCommit
+          ? t('cli.topology.mergedIn', { hash: pc.dim(b.mergeCommit.substring(0, 7)) })
+          : '';
         const isCurrentStr = b.isCurrent ? pc.cyan(' *') : '';
 
         console.log(
-          `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${b.commits.length} commits`
+          `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${t(
+            'cli.topology.commitsCount',
+            { count: b.commits.length }
+          )}`
         );
       }
 
-      console.log(`\n${pc.bold('👥 Colaboradores:')}`);
+      console.log(`\n${pc.bold(t('cli.topology.collaboratorsHeading'))}`);
       for (const col of metrics.global) {
         const typesStr = Object.entries(col.types)
           .map(([k, v]) => `${k}:${v}`)
           .join(', ');
-        const scopesStr = col.scopes.length > 0 ? col.scopes.join(', ') : 'general';
+        const scopesStr = col.scopes.length > 0 ? col.scopes.join(', ') : t('cli.topology.generalScope');
         console.log(
           `  • ${pc.bold(col.name)} ${pc.dim(`<${col.email}>`)}: ${pc.cyan(
-            `${col.commitsCount} commits`
+            t('cli.topology.commitsCount', { count: col.commitsCount })
           )}`
         );
-        if (typesStr) console.log(`    ${pc.dim('Tipos:')} ${typesStr}`);
-        console.log(`    ${pc.dim('Scopes:')} ${scopesStr}`);
-        if (col.branches.length > 0) console.log(`    ${pc.dim('Ramas:')} ${col.branches.join(', ')}`);
+        if (typesStr) console.log(`    ${pc.dim(t('cli.topology.typesLabel'))} ${typesStr}`);
+        console.log(`    ${pc.dim(t('cli.topology.scopesLabel'))} ${scopesStr}`);
+        if (col.branches.length > 0)
+          console.log(`    ${pc.dim(t('cli.topology.branchesLabel'))} ${col.branches.join(', ')}`);
       }
       console.log('');
     } catch (err) {

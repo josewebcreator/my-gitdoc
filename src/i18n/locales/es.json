@@ -32,6 +32,40 @@
       "templateFlag": "-t, --template <ruta>",
       "verbose": "Activar modo verboso"
     },
+    "topology": {
+      "description": "Analizar y mostrar la topología del repositorio, ramas y colaboradores",
+      "branch": "Filtrar por nombre de rama",
+      "branchFlag": "-b, --branch <nombre>",
+      "author": "Filtrar por colaborador (nombre o email)",
+      "authorFlag": "-a, --author <patrón>",
+      "since": "Filtrar commits desde una fecha (YYYY-MM-DD)",
+      "sinceFlag": "--since <fecha>",
+      "until": "Filtrar commits hasta una fecha (YYYY-MM-DD)",
+      "untilFlag": "--until <fecha>",
+      "from": "Referencia inicial de commit (tag, hash o rama)",
+      "fromFlag": "--from <ref>",
+      "to": "Referencia final de commit (tag, hash o rama)",
+      "toFlag": "--to <ref>",
+      "json": "Mostrar salida estructurada en formato JSON",
+      "header": "🌐 Gitdoc — Análisis Topológico y Colaboradores",
+      "baseBranch": "📌 Rama Base:",
+      "totalBranches": "🌿 Ramas Totales:",
+      "activeCount": "{count} activas",
+      "mergedCount": "{count} fusionadas",
+      "divergedCount": "{count} divergentes",
+      "branchesHeading": "Ramas:",
+      "statusActive": "[activa]",
+      "statusMerged": "[fusionada]",
+      "statusDiverged": "[divergente]",
+      "forkedAt": " (bifurcada en {hash})",
+      "mergedIn": " (merge: {hash})",
+      "collaboratorsHeading": "👥 Colaboradores:",
+      "commitsCount": "{count} commits",
+      "typesLabel": "Tipos:",
+      "scopesLabel": "Scopes:",
+      "branchesLabel": "Ramas:",
+      "generalScope": "general"
+    },
     "wizard": {
       "description": "Asistente interactivo de configuración y generación de documentación",
       "init": "Crear o actualizar el archivo de configuración .gitdocrc.json de forma interactiva",
@@ -121,6 +155,13 @@
       "confirmVerbose": "¿Activar modo verboso? (incluye más tipos de commit)",
       "previewNotice": "⚠  Modo previsualización — no se escribirán archivos físicos.\n",
       "previewError": "\n❌ Error durante la previsualización: {error}\n"
+    }
+  },
+  "topology": {
+    "errors": {
+      "branchNotFound": "No se encontró la rama especificada \"{branch}\".",
+      "noCommitsFound": "No se encontraron commits que coincidan con los filtros aplicados.",
+      "invalidDate": "Formato de fecha inválido para el filtro: \"{date}\"."
     }
   }
 }

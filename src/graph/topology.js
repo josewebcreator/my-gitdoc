@@ -1,4 +1,5 @@
 import { getAllBranches, getMergeBase, getCommitsDag } from '../git.js';
+import { t } from '../i18n/index.js';
 
 /**
  * @typedef {Object} CommitNode
@@ -415,6 +416,9 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
     filteredBranches = filteredBranches.filter(
       (b) => b.name.toLowerCase() === requested || b.name.toLowerCase().includes(requested)
     );
+    if (filteredBranches.length === 0) {
+      throw new Error(t('topology.errors.branchNotFound', { branch: options.branch }));
+    }
   }
 
   // Filtro --author
@@ -442,20 +446,22 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
   // Filtro --since
   if (options.since) {
     const sinceDate = new Date(options.since);
-    if (!isNaN(sinceDate.getTime())) {
-      for (const b of filteredBranches) {
-        b.commits = b.commits.filter((c) => c.date >= sinceDate);
-      }
+    if (isNaN(sinceDate.getTime())) {
+      throw new Error(t('topology.errors.invalidDate', { date: options.since }));
+    }
+    for (const b of filteredBranches) {
+      b.commits = b.commits.filter((c) => c.date >= sinceDate);
     }
   }
 
   // Filtro --until
   if (options.until) {
     const untilDate = new Date(options.until);
-    if (!isNaN(untilDate.getTime())) {
-      for (const b of filteredBranches) {
-        b.commits = b.commits.filter((c) => c.date <= untilDate);
-      }
+    if (isNaN(untilDate.getTime())) {
+      throw new Error(t('topology.errors.invalidDate', { date: options.until }));
+    }
+    for (const b of filteredBranches) {
+      b.commits = b.commits.filter((c) => c.date <= untilDate);
     }
   }
 

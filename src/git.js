@@ -1,9 +1,10 @@
 import { simpleGit } from 'simple-git';
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
+import { t } from './i18n/index.js';
 
 export async function* getCommits(options = {}) {
-  const git = simpleGit();
+  const git = simpleGit(options.cwd);
 
   // 1. Validate repository presence
   let isRepo = false;
@@ -13,7 +14,7 @@ export async function* getCommits(options = {}) {
     isRepo = false;
   }
   if (!isRepo) {
-    throw new Error('El directorio actual no es un repositorio Git válido.');
+    throw new Error(t('git.errors.notGitRepo'));
   }
 
   // 2. Validate that there are commits in the repository
@@ -27,7 +28,7 @@ export async function* getCommits(options = {}) {
     // If command fails, assume no commits/HEAD
   }
   if (!hasCommits) {
-    throw new Error('El repositorio no tiene commits.');
+    throw new Error(t('git.errors.noCommits'));
   }
 
   let { from, to } = options;
@@ -42,7 +43,7 @@ export async function* getCommits(options = {}) {
       toExists = false;
     }
     if (!toExists) {
-      throw new Error(`La referencia "${to}" no existe en el historial del repositorio.`);
+      throw new Error(t('git.errors.refNotFound', { ref: to }));
     }
   } else {
     to = 'HEAD';
@@ -70,7 +71,7 @@ export async function* getCommits(options = {}) {
       fromExists = false;
     }
     if (!fromExists) {
-      throw new Error(`La referencia "${from}" no existe en el historial del repositorio.`);
+      throw new Error(t('git.errors.refNotFound', { ref: from }));
     }
   }
 
@@ -134,7 +135,7 @@ export async function getAllBranches(options = {}) {
     isRepo = false;
   }
   if (!isRepo) {
-    throw new Error('El directorio actual no es un repositorio Git válido.');
+    throw new Error(t('git.errors.notGitRepo'));
   }
 
   const args = ['branch'];
@@ -234,7 +235,7 @@ export async function* getCommitsDag(refs = ['--all'], options = {}) {
     isRepo = false;
   }
   if (!isRepo) {
-    throw new Error('El directorio actual no es un repositorio Git válido.');
+    throw new Error(t('git.errors.notGitRepo'));
   }
 
   let hasCommits = false;
@@ -247,7 +248,7 @@ export async function* getCommitsDag(refs = ['--all'], options = {}) {
     // Si falla rev-list, comprobar si tiene commits
   }
   if (!hasCommits) {
-    throw new Error('El repositorio no tiene commits.');
+    throw new Error(t('git.errors.noCommits'));
   }
 
   const args = ['log', '--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s'];
