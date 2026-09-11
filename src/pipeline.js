@@ -80,6 +80,23 @@ export async function runGenerate(tipo, options = {}) {
         return;
       }
 
+      if (options.html || (options.output && options.output.endsWith('.html'))) {
+        const { generateHtmlViewer } = await import('./graph/html.js');
+        const htmlContent = await generateHtmlViewer(topo, metrics, {
+          ...options,
+          lang: options.lang || rules.locale || ((typeof Intl !== 'undefined' && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions().locale?.startsWith('es')) ? 'es' : 'en'),
+          langExplicit: Boolean(options.lang || rules.locale),
+          remoteUrl: rules.remoteUrl || undefined,
+          verbose: options.verbose || false,
+        });
+        const outputPath = resolve(process.cwd(), options.output || 'GRAPH.html');
+        const outputDir = dirname(outputPath);
+        await mkdir(outputDir, { recursive: true });
+        await writeFile(outputPath, htmlContent, 'utf-8');
+        console.log(pc.green(t('pipeline.successGenerated', { path: options.output || 'GRAPH.html' })));
+        return;
+      }
+
       const markdown = await renderDocument(topo, 'graph', {
         template: options.template || undefined,
         simplified: !!options.simplified,

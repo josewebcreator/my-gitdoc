@@ -521,17 +521,20 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
     const unmergedCommits = branchCommits.filter((c) => !targetRefAnc || !targetRefAnc.has(c.hash));
 
     let behindCount = 0;
+    let behindCommits = [];
     let commonCount = 0;
     if (forkPoint) {
       const parentObj = branches.find((x) => x.name === (parentBranch || baseBranchName));
       if (parentObj && parentObj.targetCommit) {
-        behindCount = getBranchCommits(parentObj.targetCommit, forkPoint, dag).length;
+        behindCommits = getBranchCommits(parentObj.targetCommit, forkPoint, dag);
+        behindCount = behindCommits.length;
       }
       commonCount = getBranchCommits(forkPoint, null, dag).length;
     } else if (isBase) {
       commonCount = branchCommits.length;
     } else if (mergedInto && branchTip !== baseTip) {
-      behindCount = getBranchCommits(baseTip, branchTip, dag).length;
+      behindCommits = getBranchCommits(baseTip, branchTip, dag);
+      behindCount = behindCommits.length;
       commonCount = getBranchCommits(branchTip, null, dag).length;
     }
 
@@ -550,6 +553,7 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
       commits: branchCommits,
       mergedCommits,
       unmergedCommits,
+      behindCommits,
       mergedCount: mergedCommits.length,
       unmergedCount: unmergedCommits.length,
       aheadCount: unmergedCommits.length,
