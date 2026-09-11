@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Command, Help } from 'commander';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { version: pkgVersion } = JSON.parse(
+  readFileSync(resolve(__dirname, '../package.json'), 'utf-8')
+);
 import { runGenerate } from '../src/pipeline.js';
 import { runWizardInit, runWizardGenerate, runWizardTopology } from '../src/wizard.js';
 import { select } from '@inquirer/prompts';
@@ -46,7 +52,7 @@ const program = new Command();
 program
   .name('tu-doc-cli')
   .description(t('cli.description'))
-  .version('1.0.0', '-V, --version', t('cli.versionOption'))
+  .version(pkgVersion, '-V, --version', t('cli.versionOption'))
   .helpOption('-h, --help', t('cli.helpOption'))
   .helpCommand(t('cli.helpCommandTerm'), t('cli.helpCommand'))
   .option(t('cli.langFlag'), t('cli.langOption'));

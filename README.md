@@ -18,9 +18,9 @@ Desarrollada de manera 100% determinista usando **Node.js puro (ES Modules)**, e
 
 ---
 
-## 📈 Estado del Proyecto (Hitos 1 al 12)
+## 📈 Estado del Proyecto (Hitos 1 al 13)
 
-Actualmente se han completado con éxito todos los hitos de la Fase 1, Fase 2 y Fase 3 (Hito 12):
+Actualmente se han completado con éxito todos los hitos de la Fase 1, Fase 2 y Fase 3 (Hito 13):
 
 | Hito | Estado | Descripción |
 | :--- | :---: | :--- |
@@ -36,6 +36,7 @@ Actualmente se han completado con éxito todos los hitos de la Fase 1, Fase 2 y 
 | **Hito 10: Internacionalización Multilenguaje (i18n)** | 🟢 Completado | Soporte nativo bilingüe (`es` / `en`) para comandos, opciones, errores, plantillas y catálogos extensibles. |
 | **Hito 11: Extractor Topológico, Ramas y Colaboradores** | 🟢 Completado | Reconstrucción del DAG de Git, cálculo de ancestros comunes (LCA), clasificación de ramas y métricas analíticas de colaboradores. |
 | **Hito 12: Generador de Grafos Mermaid y Reconstrucción Genealógica (DAG Multi-Nivel)** | 🟢 Completado | Generación de diagramas Mermaid (Flowchart y gitGraph), árbol topológico interactivo en consola, cálculo genealógico en cascada (`parentBranch`, `mergedInto`, `children`) y análisis bilateral de rama contra rama sin saturación de contexto. |
+| **Hito 13: Visor HTML Interactivo Autocontenido** | 🟢 Completado | Generación de un archivo HTML standalone con grafo SVG interactivo, métricas de colaboradores, filtros de ramas, tooltips, soporte multiidioma y estilos GitLab. |
 
 ---
 
@@ -387,6 +388,100 @@ El comando wizard y las utilidades de consola incorporan una vista en árbol Uni
 
 ---
 
+## 🌐 6. Visor HTML Interactivo Autocontenido (Hito 13)
+
+El Hito 13 introduce la generación de un archivo **HTML completamente autocontenido** (`GRAPH.html`) que proporciona una visualización interactiva del grafo de topología de ramas directamente en el navegador, sin dependencias externas ni servidor.
+
+### Generación del Visor HTML
+
+Existen tres formas de generar el visor HTML:
+
+#### 1. Vía CLI directo (comando `topology`)
+```bash
+# Generar GRAPH.html en el directorio actual
+tu-doc-cli topology --html
+
+# Con rama base específica
+tu-doc-cli topology dev --html
+
+# Especificar nombre/ruta del archivo de salida
+tu-doc-cli topology --html --output mi-grafo.html
+
+# Con idioma forzado
+tu-doc-cli topology --html --lang es
+```
+
+#### 2. Vía CLI directo (comando `generate`)
+```bash
+# Generar GRAPH.html con el estilo html
+tu-doc-cli generate graph --html
+
+# Especificar ruta de salida
+tu-doc-cli generate graph --html --output docs/topology.html
+
+# La extensión .html también activa el modo automáticamente
+tu-doc-cli generate graph --output GRAPH.html
+```
+
+#### 3. Vía Asistente Interactivo (`wizard`)
+```bash
+tu-doc-cli wizard
+# → Seleccionar: "Generate documentation"
+# → Tipo: "graph"
+# → Estilo de diagrama: "HTML Viewer (interactive)"
+# → Archivo de salida: GRAPH.html  (por defecto)
+
+# O desde el sub-comando wizard topology:
+tu-doc-cli wizard topology
+# → Formato de salida: "HTML Viewer"
+# → Archivo de salida: GRAPH.html  (por defecto)
+```
+
+### Características del Visor HTML
+
+El archivo generado es **100% autocontenido** (no requiere internet ni servidor):
+
+| Característica | Descripción |
+| :--- | :--- |
+| **Grafo SVG Interactivo** | Visualización del árbol de ramas con nodos codificados por color según estado (`base`, `activa`, `fusionada`, `divergente`). |
+| **Métricas de Colaboradores** | Panel lateral con tabla de autores, commits por tipo y scopes trabajados. |
+| **Filtros de Ramas** | Botones para filtrar por estado de rama (todas, activas, fusionadas, divergentes). |
+| **Tooltips Detallados** | Al pasar el cursor sobre cada nodo muestra commits ahead/behind, autor principal y fecha. |
+| **Soporte Multiidioma** | El HTML se genera en el idioma activo (`es` o `en`) respetando la jerarquía i18n. |
+| **Estética GitLab** | Paleta de colores y tipografía coherentes con la interfaz de GitLab. |
+| **Modo Verbose** | Con `--verbose` incluye el desglose de commits individuales por rama. |
+
+### Opciones disponibles para `topology --html`
+
+| Opción | Alias | Descripción |
+| :--- | :---: | :--- |
+| `--html` | `-H` | Activa el modo de salida HTML interactivo. |
+| `--output <ruta>` | `-o` | Ruta del archivo de salida (por defecto: `GRAPH.html`). |
+| `--base <rama>` | `-B` | Rama base de referencia para el análisis topológico. |
+| `--branch <rama>` | `-b` | Aisla el análisis a una rama específica. |
+| `--lang <idioma>` | `-l` | Idioma de la interfaz HTML (`es` o `en`). |
+| `--verbose` | `-v` | Incluye commits individuales en el desglose por rama. |
+| `--from <ref>` | | Commit o tag de inicio del rango de análisis. |
+| `--to <ref>` | | Commit o tag de fin del rango de análisis. |
+
+### Ejemplo de Flujo Completo
+
+```bash
+# 1. Situarse en el repositorio a analizar
+cd mi-proyecto
+
+# 2. Generar el visor con rama base dev
+tu-doc-cli topology dev --html --output docs/GRAPH.html
+# ✔ Visor HTML guardado en docs/GRAPH.html
+
+# 3. Abrir en el navegador
+start docs/GRAPH.html  # Windows
+open docs/GRAPH.html   # macOS
+xdg-open docs/GRAPH.html  # Linux
+```
+
+---
+
 ## 🛡️ Linter de Negocio (Hito 3)
 
 El CLI valida automáticamente el vocabulario de cada commit antes de generar documentación. Si algún commit contiene términos prohibidos o está mal formado, **el pipeline se interrumpe con exit code 1**.
@@ -594,9 +689,9 @@ Built 100% deterministically in **pure Node.js (ES Modules)**, it processes the 
 
 ---
 
-## 📈 Project Status (Milestones 1 to 12)
+## 📈 Project Status (Milestones 1 to 13)
 
-All milestones across Phase 1, Phase 2, and Phase 3 (Milestone 12) are complete:
+All milestones across Phase 1, Phase 2, and Phase 3 (Milestone 13) are complete:
 
 | Milestone | Status | Description |
 | :--- | :---: | :--- |
@@ -612,6 +707,7 @@ All milestones across Phase 1, Phase 2, and Phase 3 (Milestone 12) are complete:
 | **Milestone 10: Multilingual Internationalization (i18n)** | 🟢 Completed | Native bilingual support (`es` / `en`) for commands, options, error messages, templates, and catalogs. |
 | **Milestone 11: Topological DAG, Branches & Contributors** | 🟢 Completed | Git DAG reconstruction, Lowest Common Ancestor (LCA) resolution, branch status classification, and contributor attribution. |
 | **Milestone 12: Mermaid Graph Generator & Real Genealogical DAG Reconstruction** | 🟢 Completed | Mermaid diagram generation (Flowchart and gitGraph), interactive terminal branch tree preview, multi-tier genealogical DAG resolution (`parentBranch`, `mergedInto`, `children`), and bilateral branch vs branch analysis without model saturation. |
+| **Milestone 13: Self-Contained Interactive HTML Viewer** | 🟢 Completed | Generation of a fully standalone HTML file with an interactive SVG graph, contributor metrics panel, branch filters, tooltips, multilingual support, and GitLab-style aesthetics. |
 
 ---
 
@@ -952,6 +1048,100 @@ The wizard and CLI provide an interactive Unicode/ANSI tree view displaying the 
 `GRAPH.md` includes two enriched tables:
 - **Branch Summary:** Details Status, Parent Branch (Origin), Merged Into Target, Main Contributors, Commit Counts, and Conventional Commit type breakdowns.
 - **Global Contributors:** Aggregated summary of authors, total commits, change types, and worked scopes.
+
+---
+
+## 🌐 6. Self-Contained Interactive HTML Viewer (Milestone 13)
+
+Milestone 13 introduces the generation of a **fully self-contained HTML file** (`GRAPH.html`) that provides an interactive branch topology graph visualization directly in the browser — no external dependencies, no server required.
+
+### Generating the HTML Viewer
+
+There are three ways to generate the HTML viewer:
+
+#### 1. Via CLI (the `topology` command)
+```bash
+# Generate GRAPH.html in the current directory
+tu-doc-cli topology --html
+
+# With a specific base branch
+tu-doc-cli topology dev --html
+
+# Specify output file name/path
+tu-doc-cli topology --html --output my-graph.html
+
+# Force language
+tu-doc-cli topology --html --lang en
+```
+
+#### 2. Via CLI (the `generate` command)
+```bash
+# Generate GRAPH.html using the html style
+tu-doc-cli generate graph --html
+
+# Specify output path
+tu-doc-cli generate graph --html --output docs/topology.html
+
+# The .html extension alone also triggers HTML mode automatically
+tu-doc-cli generate graph --output GRAPH.html
+```
+
+#### 3. Via Interactive Wizard (`wizard`)
+```bash
+tu-doc-cli wizard
+# → Select: "Generate documentation"
+# → Type: "graph"
+# → Diagram style: "HTML Viewer (interactive)"
+# → Output file: GRAPH.html  (default)
+
+# Or from the wizard topology sub-command:
+tu-doc-cli wizard topology
+# → Output format: "HTML Viewer"
+# → Output file: GRAPH.html  (default)
+```
+
+### HTML Viewer Features
+
+The generated file is **100% self-contained** (no internet or server required):
+
+| Feature | Description |
+| :--- | :--- |
+| **Interactive SVG Graph** | Branch tree visualization with color-coded nodes by status (`base`, `active`, `merged`, `diverged`). |
+| **Contributor Metrics Panel** | Side panel with author table, commits by type, and worked scopes. |
+| **Branch Filters** | Buttons to filter by branch status (all, active, merged, diverged). |
+| **Detailed Tooltips** | Hovering each node shows ahead/behind commits, main author, and last commit date. |
+| **Multilingual Support** | HTML is generated in the active language (`es` or `en`) respecting the i18n hierarchy. |
+| **GitLab Aesthetics** | Color palette and typography consistent with the GitLab interface. |
+| **Verbose Mode** | With `--verbose`, includes individual commit breakdown per branch. |
+
+### Available Options for `topology --html`
+
+| Option | Alias | Description |
+| :--- | :---: | :--- |
+| `--html` | `-H` | Activates the interactive HTML output mode. |
+| `--output <path>` | `-o` | Output file path (default: `GRAPH.html`). |
+| `--base <branch>` | `-B` | Reference base branch for the topological analysis. |
+| `--branch <branch>` | `-b` | Isolates analysis to a specific branch. |
+| `--lang <locale>` | `-l` | Interface language for the HTML output (`es` or `en`). |
+| `--verbose` | `-v` | Includes individual commits in per-branch breakdown. |
+| `--from <ref>` | | Starting commit or tag for the analysis range. |
+| `--to <ref>` | | Ending commit or tag for the analysis range. |
+
+### Full Usage Example
+
+```bash
+# 1. Navigate to the repository to analyze
+cd my-project
+
+# 2. Generate the viewer with dev as base branch
+tu-doc-cli topology dev --html --output docs/GRAPH.html
+# ✔ HTML viewer saved to docs/GRAPH.html
+
+# 3. Open in browser
+start docs/GRAPH.html    # Windows
+open docs/GRAPH.html     # macOS
+xdg-open docs/GRAPH.html # Linux
+```
 
 ---
 
