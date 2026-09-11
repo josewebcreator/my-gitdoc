@@ -356,3 +356,5 @@ export async function renderDocument(commitsOrTopology, tipo, optionsOrScope) {
 
   return markdown;
 }
+
+export { generateHtmlViewer, renderHtmlViewer } from './graph/html.js';

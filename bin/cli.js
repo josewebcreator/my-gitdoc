@@ -6,7 +6,7 @@ import { Command, Help } from 'commander';
 import { runGenerate } from '../src/pipeline.js';
 import { runWizardInit, runWizardGenerate, runWizardTopology } from '../src/wizard.js';
 import { select } from '@inquirer/prompts';
-import { t, initI18n } from '../src/i18n/index.js';
+import { t, initI18n, getI18n } from '../src/i18n/index.js';
 import pc from 'picocolors';
 import { extractTopology, printTopologyReport } from '../src/graph/topology.js';
 import { analyzeCollaborators } from '../src/graph/collaborators.js';
@@ -87,6 +87,7 @@ program
   .option(t('cli.generate.templateFlag'), t('cli.generate.template'))
   .option(t('cli.topology.baseFlag'), t('cli.topology.base'))
   .option('-v, --verbose', t('cli.generate.verbose'))
+  .option('-H, --html', t('cli.generate.html'))
   .action((tipo, options, cmd) => {
     const mergedOpts = {
       ...cmd.optsWithGlobals(),
@@ -114,6 +115,9 @@ program
   .option(t('cli.topology.toFlag'), t('cli.topology.to'))
   .option(t('cli.topology.simplifiedFlag'), t('cli.topology.simplified'))
   .option(t('cli.topology.dryRunFlag'), t('cli.topology.dryRun'))
+  .option('-H, --html', t('cli.topology.html'))
+  .option(t('cli.topology.outputFlag'), t('cli.topology.output'))
+  .option('-v, --verbose', t('cli.topology.verbose'))
   .option('--json', t('cli.topology.json'))
   .action(async (branchArg, options, cmd) => {
     const rawPositional = typeof branchArg === 'string' && branchArg.trim().length > 0 ? branchArg.trim() : null;
@@ -139,6 +143,24 @@ program
 
       if (mergedOpts.json) {
         console.log(JSON.stringify({ topology: topo, collaborators: metrics }, null, 2));
+        return;
+      }
+
+      if (mergedOpts.html || (mergedOpts.output && mergedOpts.output.endsWith('.html'))) {
+        const { generateHtmlViewer } = await import('../src/graph/html.js');
+        const { mkdir, writeFile } = await import('node:fs/promises');
+        const { dirname, resolve } = await import('node:path');
+        const htmlContent = await generateHtmlViewer(topo, metrics, {
+          ...mergedOpts,
+          lang: mergedOpts.lang || localConfig.locale || ((typeof Intl !== 'undefined' && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions().locale?.startsWith('es')) ? 'es' : 'en'),
+          langExplicit: Boolean(mergedOpts.lang || localConfig.locale),
+          remoteUrl: localConfig.remoteUrl,
+          verbose: Boolean(mergedOpts.verbose),
+        });
+        const outPath = resolve(process.cwd(), mergedOpts.output || 'GRAPH.html');
+        await mkdir(dirname(outPath), { recursive: true });
+        await writeFile(outPath, htmlContent, 'utf-8');
+        console.log(pc.green(t('cli.topology.htmlSaved', { path: mergedOpts.output || 'GRAPH.html' })));
         return;
       }
 
