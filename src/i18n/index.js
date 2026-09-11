@@ -132,10 +132,15 @@ export function createI18n(options = {}) {
   }
 
   const availableLocales = Object.keys(staticCatalog);
+  const systemEnvLocale = typeof process !== 'undefined'
+    ? (process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES)
+    : undefined;
+
   const activeLocale = options.locale
     || resolveLocale({
       lang: options.lang,
       configLocale: options.configLocale,
+      envLocale: options.envLocale !== undefined ? options.envLocale : systemEnvLocale,
       availableLocales,
     });
 
