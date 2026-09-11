@@ -307,7 +307,6 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
   };
 
   const baseTip = baseBranchObj.targetCommit;
-  const analyzedBranches = [];
   const merges = [];
 
   // Indexar merges en el grafo
@@ -324,125 +323,216 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
     }
   }
 
-  // Precalcular conjunto de ancestros de la rama base
-  const baseAncestors = getAllAncestors(baseTip, dag);
-  baseAncestors.add(baseTip);
-
-  // Procesar rama base
-  const baseCommits = getBranchCommits(baseTip, null, dag);
-  for (const c of baseCommits) {
-    c.branches.add(baseBranchName);
+  // Precalcular conjunto de ancestros para cada rama
+  const branchAncestorsMap = new Map();
+  for (const b of branches) {
+    if (b.targetCommit) {
+      const anc = getAllAncestors(b.targetCommit, dag);
+      anc.add(b.targetCommit);
+      branchAncestorsMap.set(b.name, anc);
+    } else {
+      branchAncestorsMap.set(b.name, new Set());
+    }
   }
 
-  const baseAnalysis = {
-    name: baseBranchName,
-    targetCommit: baseTip,
-    isCurrent: Boolean(baseBranchObj.isCurrent),
-    isRemote: Boolean(baseBranchObj.isRemote),
-    isBase: true,
-    baseBranch: null,
-    forkPoint: null,
-    status: 'active',
-    mergeCommit: null,
-    commits: baseCommits,
-    mergedCommits: baseCommits,
-    unmergedCommits: [],
-    mergedCount: baseCommits.length,
-    unmergedCount: 0,
-    aheadCount: 0,
-    behindCount: 0,
-    commonCount: baseCommits.length,
-  };
-  analyzedBranches.push(baseAnalysis);
+  const baseAncestors = branchAncestorsMap.get(baseBranchName) || new Set();
 
-  // Procesar ramas secundarias
-  for (const branch of branches) {
-    if (branch.name === baseBranchName) continue;
+  const trunkNames = ['main', 'master', 'develop', 'dev', 'trunk'];
+  const isTrunk = (name) => trunkNames.includes(String(name).toLowerCase());
 
-    const branchTip = branch.targetCommit;
-    let status = 'active';
-    let forkPoint = null;
+  // Fase 1: Identificar mergedInto y mergeCommit para cada rama
+  const mergeInfoMap = new Map();
+  for (const b of branches) {
+    if (!b.targetCommit) {
+      mergeInfoMap.set(b.name, { mergedInto: null, mergeCommit: null });
+      continue;
+    }
+
+    let mergedInto = null;
     let mergeCommit = null;
 
-    // 1. Determinar si branchTip ya está integrada en la rama base (merged)
-    const isMergedIntoBase = baseTip && branchTip && baseAncestors.has(branchTip);
+    // Buscar entre las otras ramas aquellas cuya historia contiene el tip de b
+    const candidateTargets = branches.filter((other) => {
+      if (other.name === b.name) return false;
+      const otherAncestors = branchAncestorsMap.get(other.name);
+      return otherAncestors && otherAncestors.has(b.targetCommit);
+    });
 
-    if (isMergedIntoBase) {
-      status = 'merged';
-
-      // Localizar el commit de merge en la historia de la base
+    if (candidateTargets.length > 0) {
+      // 1. Verificar si hay un merge commit explícito en alguna rama candidata
       for (const m of merges) {
-        if (baseAncestors.has(m.hash)) {
-          const isMergedInM = m.parents.slice(1).some((p) => p === branchTip || isAncestor(branchTip, p, dag));
-          if (isMergedInM) {
+        const isMergedInM = m.parents.slice(1).some((p) => p === b.targetCommit || isAncestor(b.targetCommit, p, dag));
+        if (isMergedInM) {
+          const containingTargets = candidateTargets.filter((t) => {
+            const tAncestors = branchAncestorsMap.get(t.name);
+            return tAncestors && tAncestors.has(m.hash);
+          });
+          if (containingTargets.length > 0) {
+            containingTargets.sort((t1, t2) => {
+              const t1Trunk = isTrunk(t1.name) ? 1 : 0;
+              const t2Trunk = isTrunk(t2.name) ? 1 : 0;
+              if (t1Trunk !== t2Trunk) return t2Trunk - t1Trunk;
+              const d1 = getBranchCommits(t1.targetCommit, m.hash, dag).length;
+              const d2 = getBranchCommits(t2.targetCommit, m.hash, dag).length;
+              return d1 - d2;
+            });
+            mergedInto = containingTargets[0].name;
             mergeCommit = m.hash;
-            forkPoint = findLcaInDag(m.parents[0], branchTip, dag);
             break;
           }
         }
       }
 
-      // Si no hubo merge commit explícito (fast-forward o commit lineal en la base)
-      if (!forkPoint) {
-        if (branchTip === baseTip) {
-          forkPoint = null;
-        } else {
-          // Encontrar la rama antecesora más cercana en el tiempo
-          let closestAncestor = null;
-          let maxTs = -1;
-          for (const other of branches) {
-            if (other.name === branch.name) continue;
-            if (other.targetCommit === branchTip) continue;
-            if (isAncestor(other.targetCommit, branchTip, dag)) {
-              const node = dag.get(other.targetCommit);
-              const ts = node?.timestamp || 0;
-              if (ts > maxTs) {
-                maxTs = ts;
-                closestAncestor = other.targetCommit;
-              }
-            }
-          }
-          forkPoint = closestAncestor;
-        }
-      }
-    } else {
-      // Rama no fusionada: calcular forkPoint respecto a baseTip
-      forkPoint = findLcaInDag(baseTip, branchTip, dag, baseAncestors);
+      // 2. Si no hubo merge commit explícito (fast-forward merge)
+      // Una rama troncal o base NUNCA se fusiona vía fast-forward en una rama de características
+      if (!mergedInto && !isTrunk(b.name) && b.name !== baseBranchName) {
+        const validTargets = candidateTargets.filter((t) => isTrunk(t.name) || t.name === baseBranchName);
+        const targetsToConsider = validTargets.length > 0 ? validTargets : candidateTargets;
 
-      if (!forkPoint || forkPoint === branchTip) {
-        // La rama no tiene commits propios posteriores a la base
-        status = 'active';
-      } else if (forkPoint === baseTip) {
-        // La rama está estrictamente por delante de la base
-        status = 'active';
-      } else {
-        // La base y la rama secundaria tienen commits disjuntos tras el forkPoint
-        status = 'diverged';
+        targetsToConsider.sort((t1, t2) => {
+          const t1Trunk = isTrunk(t1.name) ? 1 : 0;
+          const t2Trunk = isTrunk(t2.name) ? 1 : 0;
+          if (t1Trunk !== t2Trunk) return t2Trunk - t1Trunk;
+          const d1 = getBranchCommits(t1.targetCommit, b.targetCommit, dag).length;
+          const d2 = getBranchCommits(t2.targetCommit, b.targetCommit, dag).length;
+          return d1 - d2;
+        });
+        mergedInto = targetsToConsider[0].name;
       }
     }
 
-    // Obtener los commits propios de la rama (desde branchTip hasta forkPoint excluido)
-    const branchCommits = getBranchCommits(branchTip, forkPoint, dag);
+    mergeInfoMap.set(b.name, { mergedInto, mergeCommit });
+  }
+
+  // Fase 2: Identificar parentBranch y forkPoint para cada rama
+  const parentInfoMap = new Map();
+  for (const b of branches) {
+    const isRootCandidate = b.name === 'main' || (b.name === 'master' && !branches.some((x) => x.name === 'main'));
+    if (isRootCandidate && !mergeInfoMap.get(b.name)?.mergedInto) {
+      parentInfoMap.set(b.name, { parentBranch: null, forkPoint: null });
+      continue;
+    }
+
+    const { mergedInto, mergeCommit } = mergeInfoMap.get(b.name) || {};
+    let parentBranch = null;
+    let forkPoint = null;
+
+    if (mergedInto && mergeCommit) {
+      const mNode = dag.get(mergeCommit);
+      if (mNode && mNode.parents.length >= 2) {
+        forkPoint = findLcaInDag(mNode.parents[0], b.targetCommit, dag);
+      }
+      parentBranch = mergedInto;
+    } else if (mergedInto) {
+      // Rama con fast-forward merge: su rama padre de integración es mergedInto
+      parentBranch = mergedInto;
+
+      // Buscar el forkPoint: el commit de la rama antecesora más reciente en el tiempo
+      let closestAncestor = null;
+      let maxTs = -1;
+      for (const other of branches) {
+        if (other.name === b.name) continue;
+        if (other.targetCommit === b.targetCommit) continue;
+        if (isAncestor(other.targetCommit, b.targetCommit, dag)) {
+          const node = dag.get(other.targetCommit);
+          const ts = node?.timestamp || 0;
+          if (ts > maxTs) {
+            maxTs = ts;
+            closestAncestor = other;
+          }
+        }
+      }
+      forkPoint = closestAncestor ? closestAncestor.targetCommit : null;
+    } else {
+      // Rama no fusionada: buscar la rama con el LCA más reciente en el DAG
+      let bestCandidate = null;
+      let bestLca = null;
+      let bestScore = -1;
+
+      for (const other of branches) {
+        if (other.name === b.name) continue;
+        // Si other se fusionó en b, other es una rama integrada en b, NO su padre
+        if (mergeInfoMap.get(other.name)?.mergedInto === b.name) continue;
+
+        const lca = findLcaInDag(b.targetCommit, other.targetCommit, dag, branchAncestorsMap.get(b.name));
+        if (!lca) continue;
+        // Si el LCA es el propio tip de b, other es descendiente de b (hija), no su padre
+        if (lca === b.targetCommit) continue;
+
+        const lcaNode = dag.get(lca);
+        const lcaTs = lcaNode?.timestamp || 0;
+        const isTrunkBranch = isTrunk(other.name) ? 1 : 0;
+        const isBaseB = other.name === baseBranchName ? 1 : 0;
+        const score = lcaTs * 100 + isTrunkBranch * 10 + isBaseB;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestLca = lca;
+          bestCandidate = other;
+        }
+      }
+
+      if (bestCandidate) {
+        parentBranch = bestCandidate.name;
+        forkPoint = bestLca;
+      }
+    }
+
+    parentInfoMap.set(b.name, { parentBranch, forkPoint });
+  }
+
+  // Fase 3: Construcción de datos por rama
+  const analyzedBranches = [];
+  for (const branch of branches) {
+    const isBase = (branch.name === baseBranchName) || (parentInfoMap.get(branch.name)?.parentBranch === null && !mergeInfoMap.get(branch.name)?.mergedInto);
+    const branchTip = branch.targetCommit;
+    const { parentBranch, forkPoint } = parentInfoMap.get(branch.name) || { parentBranch: null, forkPoint: null };
+    const { mergedInto, mergeCommit } = mergeInfoMap.get(branch.name) || { mergedInto: null, mergeCommit: null };
+
+    let status = 'active';
+    if (mergedInto) {
+      status = 'merged';
+    } else if (parentBranch) {
+      const parentObj = branches.find((x) => x.name === parentBranch);
+      if (parentObj && forkPoint) {
+        if (forkPoint === parentObj.targetCommit) {
+          status = 'active';
+        } else {
+          status = 'diverged';
+        }
+      } else {
+        status = 'active';
+      }
+    }
+
+    const branchCommits = isBase
+      ? getBranchCommits(branchTip, null, dag)
+      : getBranchCommits(branchTip, forkPoint, dag);
+
     for (const c of branchCommits) {
       c.branches.add(branch.name);
     }
 
-    const mergedCommits = branchCommits.filter((c) => baseAncestors.has(c.hash));
-    const unmergedCommits = branchCommits.filter((c) => !baseAncestors.has(c.hash));
+    const targetRefAnc = mergedInto
+      ? branchAncestorsMap.get(mergedInto)
+      : (parentBranch ? branchAncestorsMap.get(parentBranch) : baseAncestors);
 
-    // Calcular atraso respecto a la rama base (behind) y base común compartida (common)
+    const mergedCommits = branchCommits.filter((c) => targetRefAnc && targetRefAnc.has(c.hash));
+    const unmergedCommits = branchCommits.filter((c) => !targetRefAnc || !targetRefAnc.has(c.hash));
+
     let behindCount = 0;
     let commonCount = 0;
     if (forkPoint) {
-      behindCount = getBranchCommits(baseTip, forkPoint, dag).length;
-      commonCount = getBranchCommits(forkPoint, null, dag).length;
-    } else if (isMergedIntoBase) {
-      if (branchTip !== baseTip) {
-        behindCount = getBranchCommits(baseTip, branchTip, dag).length;
-        commonCount = getBranchCommits(branchTip, null, dag).length;
-      } else {
-        commonCount = baseCommits.length;
+      const parentObj = branches.find((x) => x.name === (parentBranch || baseBranchName));
+      if (parentObj && parentObj.targetCommit) {
+        behindCount = getBranchCommits(parentObj.targetCommit, forkPoint, dag).length;
       }
+      commonCount = getBranchCommits(forkPoint, null, dag).length;
+    } else if (isBase) {
+      commonCount = branchCommits.length;
+    } else if (mergedInto && branchTip !== baseTip) {
+      behindCount = getBranchCommits(baseTip, branchTip, dag).length;
+      commonCount = getBranchCommits(branchTip, null, dag).length;
     }
 
     analyzedBranches.push({
@@ -450,11 +540,13 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
       targetCommit: branchTip,
       isCurrent: Boolean(branch.isCurrent),
       isRemote: Boolean(branch.isRemote),
-      isBase: false,
+      isBase,
       baseBranch: baseBranchName,
+      parentBranch,
       forkPoint,
-      status,
+      mergedInto,
       mergeCommit,
+      status,
       commits: branchCommits,
       mergedCommits,
       unmergedCommits,
@@ -463,28 +555,60 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
       aheadCount: unmergedCommits.length,
       behindCount,
       commonCount,
+      children: [],
+      mergedChildren: [],
     });
+  }
+
+  // Fase 4: Enlazar ramas hijas y ramas fusionadas
+  for (const b of analyzedBranches) {
+    b.children = analyzedBranches
+      .filter((other) => other.name !== b.name && other.parentBranch === b.name)
+      .map((other) => other.name);
+    b.mergedChildren = analyzedBranches
+      .filter((other) => other.name !== b.name && other.mergedInto === b.name)
+      .map((other) => other.name);
   }
 
   // Aplicar filtros configurables
   let filteredBranches = analyzedBranches;
 
-  // Filtro --branch
+  // Filtro --branch (análisis de rama contra rama)
   if (options.branch) {
     const requested = options.branch.toLowerCase();
-    filteredBranches = filteredBranches.filter(
+    const targetBranch = analyzedBranches.find(
       (b) => b.name.toLowerCase() === requested || b.name.toLowerCase().includes(requested)
     );
-    if (filteredBranches.length === 0) {
+    if (!targetBranch) {
       throw new Error(t('topology.errors.branchNotFound', { branch: options.branch }));
     }
+
+    // Análisis de una rama contra otra:
+    // Incluir la rama objetivo, su rama base/padre de referencia, destino de merge y sus hijos directos
+    const relevantNames = new Set([targetBranch.name]);
+
+    if (targetBranch.parentBranch) {
+      relevantNames.add(targetBranch.parentBranch);
+    }
+    if (baseBranchName) {
+      relevantNames.add(baseBranchName);
+    }
+    if (targetBranch.mergedInto) {
+      relevantNames.add(targetBranch.mergedInto);
+    }
+    if (Array.isArray(targetBranch.children)) {
+      for (const child of targetBranch.children) {
+        relevantNames.add(child);
+      }
+    }
+
+    filteredBranches = analyzedBranches.filter((b) => relevantNames.has(b.name));
   }
 
   // Filtro --author
   if (options.author) {
     const authorPattern = options.author.toLowerCase();
     filteredBranches = filteredBranches.filter((b) => {
-      // Una rama se conserva si alguno de sus commits propios pertenece al autor
       const hasAuthorCommits = b.commits.some(
         (c) =>
           c.author.toLowerCase().includes(authorPattern) ||
@@ -492,7 +616,6 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
       );
       if (!hasAuthorCommits) return false;
 
-      // Filtrar también los commits internos de la rama
       b.commits = b.commits.filter(
         (c) =>
           c.author.toLowerCase().includes(authorPattern) ||
@@ -538,8 +661,11 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
   const divergedCount = filteredBranches.filter((b) => b.status === 'diverged').length;
   const allUniqueCommits = new Set();
   for (const b of filteredBranches) {
-    b.mergedCommits = b.commits.filter((c) => baseAncestors.has(c.hash));
-    b.unmergedCommits = b.commits.filter((c) => !baseAncestors.has(c.hash));
+    const targetRefAnc = b.mergedInto
+      ? branchAncestorsMap.get(b.mergedInto)
+      : (b.parentBranch ? branchAncestorsMap.get(b.parentBranch) : baseAncestors);
+    b.mergedCommits = b.commits.filter((c) => targetRefAnc && targetRefAnc.has(c.hash));
+    b.unmergedCommits = b.commits.filter((c) => !targetRefAnc || !targetRefAnc.has(c.hash));
     b.mergedCount = b.mergedCommits.length;
     b.unmergedCount = b.unmergedCommits.length;
     b.aheadCount = b.unmergedCount;
@@ -551,6 +677,7 @@ export function analyzeTopologyData(branches, rawCommits, options = {}) {
   return {
     baseBranch: baseBranchName,
     branches: filteredBranches,
+    allBranches: analyzedBranches,
     dag,
     merges,
     summary: {
@@ -574,8 +701,6 @@ export async function extractTopology(options = {}) {
 
   const refs = options.from && options.to ? [`${options.from}..${options.to}`] : ['--all'];
 
-  // Para construir el grafo topológico y resolver ancestros, fork points y merges fielmente,
-  // se extrae el grafo completo de Git y los filtros de rama, autor y fecha se aplican sobre la topología.
   const gitOptions = { cwd: options.cwd };
   for await (const c of getCommitsDag(refs, gitOptions)) {
     commitsList.push(c);
@@ -608,20 +733,32 @@ export function printTopologyReport(topo, metrics) {
     if (b.status === 'merged') statusBadge = pc.blue(t('cli.topology.statusMerged'));
     if (b.status === 'diverged') statusBadge = pc.yellow(t('cli.topology.statusDiverged'));
 
-    const forkStr = b.forkPoint
-      ? t('cli.topology.forkedAt', { hash: pc.dim(b.forkPoint.substring(0, 7)) })
-      : '';
-    const mergeStr = b.mergeCommit
-      ? t('cli.topology.mergedIn', { hash: pc.dim(b.mergeCommit.substring(0, 7)) })
-      : '';
+    let relationStr = '';
+    if (b.parentBranch && b.forkPoint) {
+      relationStr += t('cli.topology.forkedFrom', { parent: pc.bold(b.parentBranch), hash: pc.dim(b.forkPoint.substring(0, 7)) });
+    } else if (b.forkPoint) {
+      relationStr += t('cli.topology.forkedAt', { hash: pc.dim(b.forkPoint.substring(0, 7)) });
+    }
+
+    if (b.mergedInto) {
+      relationStr += b.mergeCommit
+        ? t('cli.topology.mergedIntoWithHash', { target: pc.bold(b.mergedInto), hash: pc.dim(b.mergeCommit.substring(0, 7)) })
+        : t('cli.topology.mergedInto', { target: pc.bold(b.mergedInto) });
+    } else if (b.mergeCommit) {
+      relationStr += t('cli.topology.mergedIn', { hash: pc.dim(b.mergeCommit.substring(0, 7)) });
+    }
+
     const isCurrentStr = b.isCurrent ? pc.cyan(' *') : '';
 
     if (b.isBase) {
       console.log(
-        `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge} — ${t('cli.topology.commitsCount', {
+        `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${relationStr} — ${t('cli.topology.commitsCount', {
           count: b.commits.length,
         })} (${t('cli.topology.baseLabel')})`
       );
+      if (b.children && b.children.length > 0) {
+        console.log(`    ${pc.dim(t('cli.topology.childrenLabel'))} ${b.children.join(', ')}`);
+      }
       continue;
     }
 
@@ -645,8 +782,15 @@ export function printTopologyReport(topo, metrics) {
     }
 
     console.log(
-      `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${forkStr}${mergeStr} — ${summaryStr}`
+      `  ${pc.bold(b.name)}${isCurrentStr} ${statusBadge}${relationStr} — ${summaryStr}`
     );
+
+    if (b.children && b.children.length > 0) {
+      console.log(`    ${pc.dim(t('cli.topology.childrenLabel'))} ${b.children.join(', ')}`);
+    }
+    if (b.mergedChildren && b.mergedChildren.length > 0) {
+      console.log(`    ${pc.dim(t('cli.topology.mergedChildrenLabel'))} ${b.mergedChildren.join(', ')}`);
+    }
 
     const unmergedList = b.unmergedCommits || [];
     const mergedList = b.mergedCommits || [];

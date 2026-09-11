@@ -1,6 +1,6 @@
 # 🚀 tu-doc-cli — CLI de Documentación Automática / Automated Documentation CLI
 
-[![Tests](https://img.shields.io/badge/tests-134%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-162%20passing-brightgreen.svg)]()
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
@@ -18,9 +18,9 @@ Desarrollada de manera 100% determinista usando **Node.js puro (ES Modules)**, e
 
 ---
 
-## 📈 Estado del Proyecto (Hitos 1 al 11)
+## 📈 Estado del Proyecto (Hitos 1 al 12)
 
-Actualmente se han completado con éxito todos los hitos de la Fase 1, Fase 2 y Fase 3 (Hito 11):
+Actualmente se han completado con éxito todos los hitos de la Fase 1, Fase 2 y Fase 3 (Hito 12):
 
 | Hito | Estado | Descripción |
 | :--- | :---: | :--- |
@@ -35,14 +35,15 @@ Actualmente se han completado con éxito todos los hitos de la Fase 1, Fase 2 y 
 | **Hito 9: Generador Asíncrono y Streaming** | 🟢 Completado | Pipeline basado en generadores asíncronos para extracción y parseo semántico en memoria constante. |
 | **Hito 10: Internacionalización Multilenguaje (i18n)** | 🟢 Completado | Soporte nativo bilingüe (`es` / `en`) para comandos, opciones, errores, plantillas y catálogos extensibles. |
 | **Hito 11: Extractor Topológico, Ramas y Colaboradores** | 🟢 Completado | Reconstrucción del DAG de Git, cálculo de ancestros comunes (LCA), clasificación de ramas y métricas analíticas de colaboradores. |
+| **Hito 12: Generador de Grafos Mermaid y Reconstrucción Genealógica (DAG Multi-Nivel)** | 🟢 Completado | Generación de diagramas Mermaid (Flowchart y gitGraph), árbol topológico interactivo en consola, cálculo genealógico en cascada (`parentBranch`, `mergedInto`, `children`) y análisis bilateral de rama contra rama sin saturación de contexto. |
 
 ---
 
 ## 📖 Guía del Usuario
 
 El CLI expone tres comandos principales:
-1. `wizard`: Asistente interactivo guiado por pasos.
-2. `generate`: Compilación y renderizado de documentación técnica (`changelog` y `pap`).
+1. `wizard`: Asistente interactivo guiado por pasos (configuración, generación de documentos, análisis topológico y diagramas Mermaid).
+2. `generate`: Compilación y renderizado de documentación técnica (`changelog`, `pap` y `graph`).
 3. `topology` (alias `graph`): Análisis del grafo de ramas, bifurcaciones y colaboradores.
 
 ### Requisitos Previos
@@ -136,11 +137,15 @@ tu-doc-cli wizard graph
 # o usando el alias:
 gitdoc wizard topology
 ```
-- Selección de la rama base de referencia.
-- Aislamiento opcional a una rama específica.
-- Filtro opcional por nombre o correo de colaborador.
-- Filtro opcional por rango de fechas (`since` y `until`).
-- Formato de salida: reporte visual en terminal con insignias o JSON estructurado.
+- **Selección de la rama base de referencia** (ej. `dev`, `main`).
+- **Filtro selectivo inteligente de ramas hijas:** Al preguntar *"¿Desea aislar el análisis a una rama específica?"*, el asistente analiza el DAG y únicamente lista las ramas hijas directas (`children` y `mergedChildren`) de la base elegida, evitando saturar la interfaz y el modelo con ramas no relacionadas.
+- **Filtro opcional por colaborador** (nombre o correo electrónico).
+- **Filtro opcional por rango de fechas** (`since` y `until`).
+- **Selección de formato de salida o generación:**
+  - `Topological branch tree in terminal`: Árbol jerárquico Unicode/ANSI con ramas padre, hijas e insignias de estado y colaboradores.
+  - `Generate GRAPH.md document with Mermaid diagram`: Genera el archivo `GRAPH.md` con selector de estilo (`flowchart`, `gitgraph` o `both`).
+  - `Formatted terminal report`: Reporte detallado en texto en consola con commits pendientes e integrados.
+  - `JSON`: Estructura analítica completa en formato JSON.
 
 ---
 
@@ -155,6 +160,7 @@ tu-doc-cli generate <tipo> [opciones]
 Define el tipo de documento a generar:
 *   `changelog`: Para generar el historial general de cambios de cara al usuario final.
 *   `pap`: Para generar el Procedimiento de Puesta en Producción con directivas de infraestructura y despliegue.
+*   `graph`: Para generar el documento de topología y genealogía de ramas con diagramas Mermaid (Flowchart y gitGraph) y tablas de colaboradores.
 
 > [!WARNING]
 > Si se especifica un tipo inválido o ausente (por ejemplo, `tu-doc-cli generate invalid`), el programa imprimirá un error descriptivo en color rojo en `stderr` y abortará la ejecución con código de salida `1`.
@@ -165,9 +171,13 @@ Define el tipo de documento a generar:
 | `--from <ref>` | | Referencia de inicio del rango (tag, hash o rama). Por defecto: último tag o inicio del historial. |
 | `--to <ref>` | | Referencia de fin del rango. Por defecto: `HEAD`. |
 | `--scope <nombre>` | | Filtra la documentación a un módulo o scope específico. |
-| `--output <ruta>` | `-o` | Escribe el archivo generado en la ruta indicada (crea directorios intermedios automáticamente). |
+| `--output <ruta>` | `-o` | Escribe el archivo generado en la ruta indicada (crea directorios intermedios automáticamente). Por defecto para graph: `GRAPH.md`. |
 | `--template <ruta>` | `-t` | Carga un archivo Handlebars (`.hbs`) personalizado en lugar de la plantilla predeterminada. |
-| `--verbose` | `-v` | Inyecta el `body` de cada commit debajo de su entrada en el Changelog e incluye tipos menores (`docs`, `chore`, etc.). |
+| `--verbose` | `-v` | Inyecta el `body` de cada commit debajo de su entrada en el Changelog; para `graph`, activa el diagrama gitGraph detallado commit a commit. |
+| `--simplified` | `-s` | Para `graph`, genera el diagrama Flowchart LR simplificado de relaciones entre ramas y colaboradores. |
+| `--diagram-style <style>` | | Para `graph`, selecciona el estilo: `flowchart`, `gitgraph` o `both` (ambos en el mismo archivo). |
+| `--base <rama>` | `-B` | Para `graph`, especifica la rama base de referencia (ej. `dev`, `main`). |
+| `--branch <rama>` | `-b` | Para `graph`, aísla el análisis a una rama específica en comparación bilateral con la base. |
 | `--dry-run` | | Simula la operación imprimiendo el resultado en la terminal sin escribir ningún archivo. |
 | `-l, --lang <es\|en>` | | Selecciona el idioma de la ejecución (`es` o `en`). |
 
@@ -178,6 +188,15 @@ tu-doc-cli generate changelog --dry-run
 
 # Previsualizar PAP en consola
 tu-doc-cli generate pap --dry-run
+
+# Generar GRAPH.md con diagramas Mermaid (Flowchart + GitGraph)
+tu-doc-cli generate graph --diagram-style both
+
+# Generar GRAPH.md simplificado (Flowchart LR)
+tu-doc-cli generate graph --simplified -o GRAPH.md
+
+# Generar análisis bilateral rama contra rama (dev vs feat/wizard-cli)
+tu-doc-cli generate graph --base dev --branch feat/wizard-cli --diagram-style both
 
 # Filtrar por rango de commits o tags
 tu-doc-cli generate changelog --from v1.0.0 --to HEAD --dry-run
@@ -301,6 +320,70 @@ Ramas:
 
 ### Exportación a JSON (`--json`)
 Al pasar la bandera `--json`, la herramienta devuelve un objeto con dos claves principales: `topology` (con el DAG, forks, merges y métricas por rama) y `collaborators` (con estadísticas agregadas por autor y por rama).
+
+---
+
+## 📊 5. Generador de Grafos Mermaid y Reconstrucción Genealógica Real (Hito 12)
+
+El Hito 12 introduce la compilación visual del DAG en documentos Markdown (`GRAPH.md`) con diagramas **Mermaid** interactivos, árbol topológico jerárquico en consola y reconstrucción analítica del historial genealógico en cascada (`main` $\rightarrow$ `dev` $\rightarrow$ ramas de funcionalidad).
+
+### 1. Diagramas Mermaid Generados
+
+El documento generado (`GRAPH.md`) soporta tres modos de diagramación:
+
+*   **Flowchart LR (`--simplified`):**
+    Representación simplificada orientada a arquitectura donde cada rama es un nodo visualmente distinguible con:
+    - Insignias de estado: `[base]`, `[fusionada]`, `[activa]`, `[divergente]`.
+    - Conteo acumulado de commits y autores principales.
+    - Aristas dirigidas de bifurcación (`b_0 -->|fork| b_1`).
+    - Aristas de fusión (`b_1 -->|merge| b_0`).
+    - Aristas de divergencia punteadas (`b_1 -.->|1 ahead / 45 behind| b_0`).
+*   **GitGraph Detallado (`--verbose`):**
+    Representación commit a commit estilo GitLens / Git Graph donde se visualiza la línea temporal real, puntos exactos de bifurcación (`branch`), commits individuales con autor y asunto, y fusiones (`merge`) etiquetadas.
+*   **Ambos Estilos en el Mismo Documento (`--diagram-style both`):**
+    Genera en `GRAPH.md` tanto el bloque `Flowchart LR` (visión general) como el bloque `gitGraph` (línea temporal detallada).
+
+```mermaid
+flowchart LR
+    b_0["<b>dev</b> [base]<br/>(68 commits)<br/>👤 Jose Manuel"]
+    b_1["<b>feat/wizard-cli</b> [diverged]<br/>(1 commits)<br/>👤 Jose Manuel"]
+    b_0 -->|fork| b_1
+    b_1 -.->|1 ahead / 45 behind| b_0
+```
+
+### 2. Análisis Bilateral Rama contra Rama
+
+Al evaluar una rama específica con respecto a una rama base (por ejemplo, `--base dev --branch feat/wizard-cli` o mediante el wizard interactivo):
+- El análisis no aísla ciegamente la rama a un nodo huérfano; preserva tanto la rama evaluada como su rama base/padre de referencia.
+- Se conectan fielmente sus relaciones de bifurcación y destino de integración.
+- Los reportes y métricas de colaboradores se acotan exclusivamente a las ramas involucradas.
+
+### 3. Filtro Inteligente de Ramas Hijas en el Asistente
+
+Para evitar sobrecargar la interfaz o saturar la ventana de contexto de los modelos de IA:
+- Al seleccionar la rama base en `wizard topology`, el motor extrae de inmediato el DAG y calcula las ramas descendientes directas (`children` y `mergedChildren`).
+- La opción de aislar rama únicamente ofrece las ramas hijas de la base seleccionada, descartando ramas ajenas o ramas que nacieron y murieron en otras troncales.
+
+### 4. Salvaguardas de Renderizado Automáticas
+
+Mermaid `gitGraph` requiere de forma estricta que una rama destino contenga al menos un commit antes de recibir un `merge`. El motor inyecta automáticamente commits ancla (`root-commit`) si la rama base no tuviese commits en el subgrafo aislado, garantizando que el diagrama renderice con éxito sin errores en ningún visor Markdown.
+
+### 5. Árbol Topológico Jerárquico en Terminal
+
+El comando wizard y las utilidades de consola incorporan una vista en árbol Unicode/ANSI que ilustra la jerarquía genealógica:
+
+```text
+🌱 Gitdoc — Árbol Topológico de Ramas
+📌 dev (68 commits) [base branch] (👤 Jose Manuel)
+   └─ feat/wizard-cli (1 commits) [diverged] [1 ahead, 45 behind] (👤 Jose Manuel)
+      └─ • a0f5339 feat(cli): implement interactive wizard su...
+```
+
+### 6. Tabla Genealógica y de Colaboradores en Markdown
+
+`GRAPH.md` incluye dos tablas analíticas enriquecidas:
+- **Resumen por Rama:** Detalla Estado, Rama Origen (Padre), Rama Destino de Fusión, Principales Colaboradores, Commits y Desglose por tipos de Conventional Commits.
+- **Colaboradores Globales:** Resumen agregado de autores, total de commits, tipos y scopes trabajados.
 
 ---
 
@@ -430,7 +513,7 @@ pnpm test
 node --test --experimental-test-module-mocks tests/**/*.test.js
 ```
 
-*Estado de la suite:* **134 pruebas pasando al 100%**.
+*Estado de la suite:* **162 pruebas pasando al 100%** (unitarias, integración y rendimiento).
 
 ---
 
@@ -442,10 +525,15 @@ graph TD
     B --> |wizard| WIZ[Wizard Interactivo @inquirer/prompts]
     WIZ --> WIZ_INIT[wizard init]
     WIZ --> WIZ_GEN[wizard generate]
-    WIZ --> WIZ_TOPO[wizard topology]
+    WIZ --> WIZ_TOPO[wizard topology / graph]
+    WIZ_TOPO --> WIZ_CHILD[Filtro Selectivo de Hijas]
+    WIZ_CHILD --> WIZ_FORMAT{Formato?}
+    WIZ_FORMAT --> |tree| WIZ_TREE[Árbol Unicode/ANSI en Terminal]
+    WIZ_FORMAT --> |graph| WIZ_GRAPH[Generar GRAPH.md con Mermaid]
+    WIZ_FORMAT --> |terminal / json| TOPO
     B --> |topology / graph| TOPO[Motor Topológico src/graph/topology.js]
     TOPO --> DAG[Construir DAG con getCommitsDag]
-    DAG --> LCA[Calcular Fork Points y LCA]
+    DAG --> LCA[Calcular Fork Points, LCA y Genealogía]
     LCA --> COL[Analizar Colaboradores src/graph/collaborators.js]
     COL --> OUT_TOPO{--json?}
     OUT_TOPO --> |Sí| JSON_OUT[Salida JSON en stdout]
@@ -456,9 +544,11 @@ graph TD
     E --> F{Linter de Negocio}
     F --> |Commit inválido| G[Error Rojo & Exit 1]
     F --> |Válidos| H[Renderizador Handlebars]
-    H --> H1[groupForChangelog / groupForPap]
+    H --> H1[groupForChangelog / groupForPap / graph]
     H1 --> H2[parseInstructions - Directivas PAP]
     H2 --> H3[generateRemoteLinks - Autolinking]
+    H1 --> MERMAID[Compilador Mermaid src/graph/mermaid.js]
+    MERMAID --> H3
     H3 --> I{--dry-run?}
     I --> |Sí| J[Imprimir Markdown en consola]
     I --> |No| K[Escribir archivo en disco]
@@ -504,9 +594,9 @@ Built 100% deterministically in **pure Node.js (ES Modules)**, it processes the 
 
 ---
 
-## 📈 Project Status (Milestones 1 to 11)
+## 📈 Project Status (Milestones 1 to 12)
 
-All milestones across Phase 1, Phase 2, and Phase 3 (Milestone 11) are complete:
+All milestones across Phase 1, Phase 2, and Phase 3 (Milestone 12) are complete:
 
 | Milestone | Status | Description |
 | :--- | :---: | :--- |
@@ -521,14 +611,15 @@ All milestones across Phase 1, Phase 2, and Phase 3 (Milestone 11) are complete:
 | **Milestone 9: Async Generators & Streaming Pipeline** | 🟢 Completed | Async generator pipeline for log extraction and semantic parsing in constant memory. |
 | **Milestone 10: Multilingual Internationalization (i18n)** | 🟢 Completed | Native bilingual support (`es` / `en`) for commands, options, error messages, templates, and catalogs. |
 | **Milestone 11: Topological DAG, Branches & Contributors** | 🟢 Completed | Git DAG reconstruction, Lowest Common Ancestor (LCA) resolution, branch status classification, and contributor attribution. |
+| **Milestone 12: Mermaid Graph Generator & Real Genealogical DAG Reconstruction** | 🟢 Completed | Mermaid diagram generation (Flowchart and gitGraph), interactive terminal branch tree preview, multi-tier genealogical DAG resolution (`parentBranch`, `mergedInto`, `children`), and bilateral branch vs branch analysis without model saturation. |
 
 ---
 
 ## 📖 User Guide
 
 The CLI exposes three primary commands:
-1. `wizard`: Step-by-step interactive assistant.
-2. `generate`: Technical documentation compilation (`changelog` and `pap`).
+1. `wizard`: Step-by-step interactive assistant (configuration, document generation, topological analysis, and Mermaid diagrams).
+2. `generate`: Technical documentation compilation (`changelog`, `pap`, and `graph`).
 3. `topology` (alias `graph`): Branch graph genealogy, bifurcation, and contributor analysis.
 
 ### Prerequisites
@@ -622,11 +713,15 @@ tu-doc-cli wizard graph
 # or using the alias:
 gitdoc wizard topology
 ```
-- Base reference branch selection.
-- Optional branch isolation.
-- Optional contributor filter by name or email.
-- Optional date range filter (`since` and `until`).
-- Display format: formatted terminal report with badges or structured JSON.
+- **Base reference branch selection** (e.g. `dev`, `main`).
+- **Smart Selective Child Branch Filter:** When prompted *"Would you like to isolate the analysis to a specific branch?"*, the wizard resolves the Git DAG in real time and only presents direct child branches (`children` and `mergedChildren`) of the selected base branch, preventing context window saturation and clutter.
+- **Optional contributor filter** (name or email).
+- **Optional date range filter** (`since` and `until`).
+- **Display or generation format selector:**
+  - `Topological branch tree in terminal`: Hierarchical Unicode/ANSI tree showing parent and child branches, status badges, and authors.
+  - `Generate GRAPH.md document with Mermaid diagram`: Generates `GRAPH.md` with visual style choice (`flowchart`, `gitgraph`, or `both`).
+  - `Formatted terminal report`: Verbose console text report with unmerged and merged commit breakdowns.
+  - `JSON`: Full structured JSON export.
 
 ---
 
@@ -640,6 +735,7 @@ tu-doc-cli generate <type> [options]
 ### `<type>` Argument:
 *   `changelog`: Generates a user-facing changelog grouped by types (`feat`, `fix`, `perf`, `refactor`) with Breaking Changes highlighted.
 *   `pap`: Generates the Production Deployment Procedure (PAP) with infrastructure directives parsed from commit bodies.
+*   `graph`: Generates the repository branch topology and genealogical DAG report with Mermaid diagrams (Flowchart and gitGraph) and contributor attribution tables.
 
 ### Available Options
 | Option | Alias | Description |
@@ -647,9 +743,13 @@ tu-doc-cli generate <type> [options]
 | `--from <ref>` | | Start reference (tag, hash, or branch). Default: latest tag or repository root. |
 | `--to <ref>` | | End reference. Default: `HEAD`. |
 | `--scope <name>` | | Filter documentation to a specific component or scope. |
-| `--output <path>` | `-o` | Write the generated file to the specified path (creates parent directories). |
+| `--output <path>` | `-o` | Write the generated file to the specified path (creates parent directories). Default for graph: `GRAPH.md`. |
 | `--template <path>` | `-t` | Load a custom Handlebars (`.hbs`) template instead of the default template. |
-| `--verbose` | `-v` | Inject commit bodies under each entry in the Changelog and include minor types (`docs`, `chore`, etc.). |
+| `--verbose` | `-v` | Inject commit bodies under each entry in the Changelog; for `graph`, renders detailed commit-by-commit gitGraph. |
+| `--simplified` | `-s` | For `graph`, generates simplified architecture Flowchart LR diagram. |
+| `--diagram-style <style>` | | For `graph`, selects diagram style: `flowchart`, `gitgraph`, or `both` (both in the same file). |
+| `--base <branch>` | `-B` | For `graph`, specifies reference base branch (e.g. `dev`, `main`). |
+| `--branch <branch>` | `-b` | For `graph`, isolates analysis to a specific branch in bilateral comparison with base branch. |
 | `--dry-run` | | Simulate generation by printing the markdown output to stdout without writing files. |
 | `-l, --lang <es\|en>` | | Select execution language (`es` or `en`). |
 
@@ -660,6 +760,15 @@ tu-doc-cli generate changelog --dry-run
 
 # Preview PAP in terminal
 tu-doc-cli generate pap --dry-run
+
+# Generate GRAPH.md with both Mermaid diagrams (Flowchart + GitGraph)
+tu-doc-cli generate graph --diagram-style both
+
+# Generate simplified GRAPH.md (Flowchart LR)
+tu-doc-cli generate graph --simplified -o GRAPH.md
+
+# Generate bilateral branch vs branch analysis (dev vs feat/wizard-cli)
+tu-doc-cli generate graph --base dev --branch feat/wizard-cli --diagram-style both
 
 # Filter by revision range
 tu-doc-cli generate changelog --from v1.0.0 --to HEAD --dry-run
@@ -782,6 +891,70 @@ Branches:
 
 ---
 
+## 📊 5. Mermaid Graph Generator & Real Genealogical DAG Reconstruction (Milestone 12)
+
+Milestone 12 introduces visual compilation of the Git DAG into Markdown documents (`GRAPH.md`) featuring interactive **Mermaid** diagrams, a hierarchical console terminal tree, and analytical reconstruction of cascading genealogical history (`main` $\rightarrow$ `dev` $\rightarrow$ feature branches).
+
+### 1. Generated Mermaid Diagrams
+
+The generated `GRAPH.md` document supports three visualization modes:
+
+*   **Flowchart LR (`--simplified`):**
+    Architectural high-level overview where each branch is represented as a distinct node containing:
+    - Status badges: `[base]`, `[merged]`, `[active]`, `[diverged]`.
+    - Total commit count and top contributors.
+    - Directed fork edges (`b_0 -->|fork| b_1`).
+    - Merge edges (`b_1 -->|merge| b_0`).
+    - Dotted divergence edges (`b_1 -.->|1 ahead / 45 behind| b_0`).
+*   **Detailed GitGraph (`--verbose`):**
+    Commit-by-commit timeline representation (GitLens / Git Graph style) detailing exact branch fork points (`branch`), individual commits with author and subject, and tagged merges (`merge`).
+*   **Both Styles in the Same Document (`--diagram-style both`):**
+    Generates both the `Flowchart LR` overview and the `gitGraph` detailed history in `GRAPH.md`.
+
+```mermaid
+flowchart LR
+    b_0["<b>dev</b> [base]<br/>(68 commits)<br/>👤 Jose Manuel"]
+    b_1["<b>feat/wizard-cli</b> [diverged]<br/>(1 commits)<br/>👤 Jose Manuel"]
+    b_0 -->|fork| b_1
+    b_1 -.->|1 ahead / 45 behind| b_0
+```
+
+### 2. Bilateral Branch vs Branch Analysis
+
+When analyzing a specific branch relative to a base branch (e.g. `--base dev --branch feat/wizard-cli` or using the interactive wizard):
+- The analysis preserves both the analyzed branch and its reference base/parent branch, rather than isolating it as an orphaned node.
+- Forking origin and merge target relationships are cleanly connected.
+- Contributor metrics and commit tables are scoped strictly to the relevant branches.
+
+### 3. Smart Selective Child Branch Filter in the Wizard
+
+To avoid cluttering the terminal interface and saturating AI prompt context windows:
+- When selecting the base branch in `wizard topology`, the engine dynamically extracts the DAG and discovers direct descendant branches (`children` and `mergedChildren`).
+- The branch isolation prompt only presents child branches of the chosen base, filtering out irrelevant branches from other trunks.
+
+### 4. Automatic Rendering Safeguards
+
+Mermaid `gitGraph` strictly requires a target branch to possess at least one commit before receiving a `merge`. The engine automatically injects clean anchor commits (`root-commit`) if a base or target branch lacks commits in the isolated subgraph, ensuring zero syntax or render failures across any Markdown viewer.
+
+### 5. Hierarchical Terminal Branch Tree
+
+The wizard and CLI provide an interactive Unicode/ANSI tree view displaying the genealogical cascade:
+
+```text
+🌱 Gitdoc — Topological Branch Tree
+📌 dev (68 commits) [base branch] (👤 Jose Manuel)
+   └─ feat/wizard-cli (1 commits) [diverged] [1 ahead, 45 behind] (👤 Jose Manuel)
+      └─ • a0f5339 feat(cli): implement interactive wizard su...
+```
+
+### 6. Markdown Genealogical & Contributor Summary Tables
+
+`GRAPH.md` includes two enriched tables:
+- **Branch Summary:** Details Status, Parent Branch (Origin), Merged Into Target, Main Contributors, Commit Counts, and Conventional Commit type breakdowns.
+- **Global Contributors:** Aggregated summary of authors, total commits, change types, and worked scopes.
+
+---
+
 ## 🛡️ Business Linter (Milestone 3)
 
 The CLI automatically lints every commit message before generating documentation. If any commit contains forbidden vocabulary or is non-compliant, **the pipeline halts with exit code 1**.
@@ -870,7 +1043,7 @@ pnpm test
 node --test --experimental-test-module-mocks tests/**/*.test.js
 ```
 
-*Suite status:* **134 passing tests (100%)**.
+*Suite status:* **162 passing tests (100%)** (unit, integration, and performance).
 
 ---
 

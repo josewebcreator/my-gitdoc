@@ -66,8 +66,13 @@ export async function runGenerate(tipo, options = {}) {
       const { analyzeCollaborators } = await import('./graph/collaborators.js');
       const { printTerminalTree } = await import('./graph/terminal.js');
 
-      const topo = await extractTopology({ ...options, cwd: options.cwd || process.cwd() });
-      const metrics = analyzeCollaborators(topo, options);
+      const baseBranch = options.baseBranch || rules.baseBranch;
+      const topo = await extractTopology({
+        ...options,
+        ...(baseBranch ? { baseBranch } : {}),
+        cwd: options.cwd || process.cwd(),
+      });
+      const metrics = analyzeCollaborators(topo, { ...options, ...(baseBranch ? { baseBranch } : {}) });
 
       if (options.dryRun) {
         process.stdout.write(pc.yellow(t('pipeline.dryRunNotice')));
@@ -78,6 +83,7 @@ export async function runGenerate(tipo, options = {}) {
       const markdown = await renderDocument(topo, 'graph', {
         template: options.template || undefined,
         simplified: !!options.simplified,
+        diagramStyle: options.diagramStyle || undefined,
         topology: topo,
         collaborators: metrics,
         remoteUrl: rules.remoteUrl || undefined,

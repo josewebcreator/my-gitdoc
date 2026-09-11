@@ -247,3 +247,83 @@ test('generateCollaboratorsTableData - produces structured rows matching Delta S
   assert.strictEqual(rows[1].branch, 'feat/api');
   assert.ok(rows[1].collaboratorsList.includes('Carlos Ruiz (1)'));
 });
+
+test('buildDetailedGitGraph and buildSimplifiedFlowchart - branch vs branch analysis', () => {
+  const topologyData = {
+    baseBranch: 'dev',
+    branches: [
+      {
+        name: 'dev',
+        isBase: true,
+        commits: [
+          { hash: 'd2', author: 'Lead', subject: 'Merge feat/auth into dev', timestamp: 300 },
+          { hash: 'd1', author: 'Lead', subject: 'feat: dev base', timestamp: 100 },
+        ],
+      },
+      {
+        name: 'feat/auth',
+        isBase: false,
+        parentBranch: 'dev',
+        mergedInto: 'dev',
+        status: 'merged',
+        forkPoint: 'd1',
+        mergeCommit: 'd2',
+        commits: [
+          { hash: 'f1', author: 'Ana', subject: 'feat: auth login', timestamp: 200 },
+        ],
+        mergedCommits: [
+          { hash: 'f1', author: 'Ana', subject: 'feat: auth login', timestamp: 200 },
+        ],
+        unmergedCommits: [],
+      },
+    ],
+    summary: { totalCommits: 3 },
+  };
+
+  // 1. gitGraph
+  const gitCode = buildDetailedGitGraph(topologyData);
+  assert.ok(gitCode.includes("mainBranchName': 'dev'"), 'debe configurar dev como rama principal');
+  assert.ok(gitCode.includes('branch feat/auth'), 'debe bifurcar feat/auth');
+  assert.ok(gitCode.includes('checkout feat/auth'), 'debe cambiar a feat/auth');
+  assert.ok(gitCode.includes('f1: Ana - feat: auth login'), 'debe contener el commit de la rama');
+  assert.ok(gitCode.includes('checkout dev'), 'debe regresar a dev antes del merge');
+  assert.ok(gitCode.includes('merge feat/auth'), 'debe registrar merge feat/auth hacia dev');
+
+  // 2. flowchart
+  const flowCode = buildSimplifiedFlowchart(topologyData);
+  assert.ok(flowCode.includes('b_0["<b>dev</b> [base]'), 'debe contener nodo para dev');
+  assert.ok(flowCode.includes('b_1["<b>feat/auth</b> [merged]'), 'debe contener nodo para feat/auth');
+  assert.ok(flowCode.includes('b_0 -->|fork| b_1'), 'debe conectar fork de dev a feat/auth');
+  assert.ok(flowCode.includes('b_1 -->|merge| b_0'), 'debe conectar merge de feat/auth a dev');
+});
+
+test('buildDetailedGitGraph - safeguard prevents error when base branch has zero commits', () => {
+  const topologyData = {
+    baseBranch: 'dev',
+    branches: [
+      {
+        name: 'dev',
+        isBase: true,
+        targetCommit: 'd000000',
+        commits: [], // sin commits propios
+      },
+      {
+        name: 'feat/isolated',
+        isBase: false,
+        parentBranch: 'dev',
+        mergedInto: 'dev',
+        status: 'merged',
+        commits: [{ hash: 'i111111', author: 'Dev', subject: 'isolated commit', timestamp: 200 }],
+        mergedCommits: [{ hash: 'i111111', author: 'Dev', subject: 'isolated commit', timestamp: 200 }],
+        unmergedCommits: [],
+      },
+    ],
+    summary: { totalCommits: 1 },
+  };
+
+  const gitCode = buildDetailedGitGraph(topologyData);
+  // Debe haber inyectado un commit inicial en dev antes de bifurcar o mezclar
+  assert.ok(gitCode.includes('dev-root') || gitCode.includes('dev-base'), 'debe inyectar commit ancla en dev');
+  assert.ok(gitCode.includes('merge feat/isolated'), 'debe incluir el merge sin fallar');
+});
+

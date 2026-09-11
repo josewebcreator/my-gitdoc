@@ -1,15 +1,31 @@
 # {{labels.title}}
+{{#if showFlowchart}}
+
+## {{labels.flowchartTitle}}
+
+> {{labels.flowchartDesc}}
 
 ```mermaid
-{{{mermaidDiagram}}}
+{{{mermaidFlowchart}}}
 ```
+{{/if}}
+{{#if showGitGraph}}
+
+## {{labels.gitGraphTitle}}
+
+> {{labels.gitGraphDesc}}
+
+```mermaid
+{{{mermaidGitGraph}}}
+```
+{{/if}}
 
 ## {{labels.collaboratorsTitle}}
 
-| {{labels.tableBranch}} | {{labels.tableStatus}} | {{labels.tableCollaborators}} | {{labels.tableCommits}} | {{labels.tableTypes}} |
-| :--- | :--- | :--- | :---: | :--- |
+| {{labels.tableBranch}} | {{labels.tableStatus}} | {{labels.tableParent}} | {{labels.tableMergedInto}} | {{labels.tableCollaborators}} | {{labels.tableCommits}} | {{labels.tableTypes}} |
+| :--- | :--- | :--- | :--- | :--- | :---: | :--- |
 {{#each branchSummary}}
-| {{#if isCurrent}}* {{/if}}`{{branch}}` | {{statusBadge}} | {{collaboratorsList}} | {{totalCommits}} | {{typesList}} |
+| {{#if isCurrent}}* {{/if}}`{{branch}}` | {{statusBadge}} | `{{parentBranch}}` | `{{mergedInto}}` | {{collaboratorsList}} | {{totalCommits}} | {{typesList}} |
 {{/each}}
 {{#if globalSummary}}
 

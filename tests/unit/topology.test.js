@@ -243,4 +243,101 @@ test('analyzeTopologyData - distinguishes merged and unmerged commits and resolv
   assert.deepStrictEqual(divBranch.unmergedCommits.map((c) => c.hash), ['d1']);
 });
 
+test('analyzeTopologyData - resolves multi-tier genealogical DAG (main -> dev -> feature merged in dev and feature active on dev)', () => {
+  // m1 -> m2 (main tip)
+  //   \-> d1 -> d2 -> d3 (merge commit of feat/auth, dev tip)
+  //        \-> f1 -> f2 (feat/auth)
+  //             \-> a1 (feat/active, forked from dev at d3)
+  const branches = [
+    { name: 'main', targetCommit: 'm2' },
+    { name: 'dev', targetCommit: 'd3' },
+    { name: 'feat/auth', targetCommit: 'f2' },
+    { name: 'feat/active', targetCommit: 'a1' },
+  ];
+  const commits = [
+    { hash: 'a1', parents: ['d3'], author: 'Dev', timestamp: 700, subject: 'feat: active work' },
+    { hash: 'd3', parents: ['d2', 'f2'], author: 'Lead', timestamp: 600, subject: 'Merge branch feat/auth into dev', isMerge: true },
+    { hash: 'f2', parents: ['f1'], author: 'Ana', timestamp: 500, subject: 'feat: auth two' },
+    { hash: 'f1', parents: ['d1'], author: 'Ana', timestamp: 400, subject: 'feat: auth one' },
+    { hash: 'd2', parents: ['d1'], author: 'Lead', timestamp: 350, subject: 'chore: dev prep' },
+    { hash: 'd1', parents: ['m1'], author: 'Lead', timestamp: 300, subject: 'feat: start dev' },
+    { hash: 'm2', parents: ['m1'], author: 'Lead', timestamp: 250, subject: 'docs: main release' },
+    { hash: 'm1', parents: [], author: 'Lead', timestamp: 100, subject: 'init' },
+  ];
+
+  const result = analyzeTopologyData(branches, commits);
+
+  // 1. main is root
+  const main = result.branches.find((b) => b.name === 'main');
+  assert.strictEqual(main.parentBranch, null);
+  assert.ok(main.children.includes('dev'));
+
+  // 2. dev forked from main at m1
+  const dev = result.branches.find((b) => b.name === 'dev');
+  assert.strictEqual(dev.parentBranch, 'main');
+  assert.strictEqual(dev.forkPoint, 'm1');
+  assert.ok(dev.children.includes('feat/auth'));
+  assert.ok(dev.children.includes('feat/active'));
+  assert.ok(dev.mergedChildren.includes('feat/auth'));
+  assert.strictEqual(dev.status, 'diverged'); // main has m2, dev has d1..d3
+
+  // 3. feat/auth forked from dev and merged into dev (NOT main!)
+  const auth = result.branches.find((b) => b.name === 'feat/auth');
+  assert.strictEqual(auth.parentBranch, 'dev');
+  assert.strictEqual(auth.mergedInto, 'dev');
+  assert.strictEqual(auth.mergeCommit, 'd3');
+  assert.strictEqual(auth.status, 'merged');
+
+  // 4. feat/active forked from dev and is active on dev
+  const active = result.branches.find((b) => b.name === 'feat/active');
+  assert.strictEqual(active.parentBranch, 'dev');
+  assert.strictEqual(active.forkPoint, 'd3');
+  assert.strictEqual(active.status, 'active');
+  assert.strictEqual(active.aheadCount, 1);
+  assert.strictEqual(active.behindCount, 0);
+});
+
+test('analyzeTopologyData - branch vs branch analysis preserves target branch and reference base branch', () => {
+  // m1 -> m2 (main tip)
+  //   \-> d1 -> d2 (dev tip)
+  //        \-> f1 -> f2 (feat/auth, merged into dev at d2)
+  //   \-> o1 (other/unrelated on main)
+  const branches = [
+    { name: 'main', targetCommit: 'm2' },
+    { name: 'dev', targetCommit: 'd2' },
+    { name: 'feat/auth', targetCommit: 'f2' },
+    { name: 'other/unrelated', targetCommit: 'o1' },
+  ];
+  const commits = [
+    { hash: 'd2', parents: ['d1', 'f2'], author: 'Dev', timestamp: 600, subject: 'Merge feat/auth into dev', isMerge: true },
+    { hash: 'f2', parents: ['f1'], author: 'Ana', timestamp: 500, subject: 'feat: auth two' },
+    { hash: 'f1', parents: ['d1'], author: 'Ana', timestamp: 400, subject: 'feat: auth one' },
+    { hash: 'o1', parents: ['m1'], author: 'Other', timestamp: 350, subject: 'feat: unrelated' },
+    { hash: 'd1', parents: ['m1'], author: 'Lead', timestamp: 300, subject: 'feat: dev base' },
+    { hash: 'm2', parents: ['m1'], author: 'Lead', timestamp: 250, subject: 'docs: main' },
+    { hash: 'm1', parents: [], author: 'Lead', timestamp: 100, subject: 'init' },
+  ];
+
+  // Análisis aislado de feat/auth contra dev
+  const result = analyzeTopologyData(branches, commits, { baseBranch: 'dev', branch: 'feat/auth' });
+
+  // Debe incluir la rama evaluada y la rama base/padre, excluyendo ramas no relacionadas
+  const branchNames = result.branches.map((b) => b.name);
+  assert.ok(branchNames.includes('feat/auth'), 'debe incluir la rama evaluada');
+  assert.ok(branchNames.includes('dev'), 'debe incluir la rama base/padre');
+  assert.ok(!branchNames.includes('other/unrelated'), 'no debe incluir ramas no relacionadas');
+
+  const authBranch = result.branches.find((b) => b.name === 'feat/auth');
+  assert.strictEqual(authBranch.parentBranch, 'dev');
+  assert.strictEqual(authBranch.mergedInto, 'dev');
+  assert.strictEqual(authBranch.status, 'merged');
+  assert.strictEqual(authBranch.commits.length, 2);
+
+  const devBranch = result.branches.find((b) => b.name === 'dev');
+  assert.strictEqual(devBranch.name, 'dev');
+  assert.strictEqual(devBranch.isBase, true);
+  assert.ok(devBranch.commits.length > 0);
+});
+
+
 

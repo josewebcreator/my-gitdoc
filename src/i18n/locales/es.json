@@ -66,7 +66,14 @@
       "statusMerged": "[fusionada]",
       "statusDiverged": "[divergente]",
       "forkedAt": " (bifurcada en {hash})",
+      "forkedFrom": " (bifurcada de {parent} en {hash})",
       "mergedIn": " (merge: {hash})",
+      "mergedInto": " (fusionada en {target})",
+      "mergedIntoWithHash": " (fusionada en {target} en {hash})",
+      "parentLabel": "Origen (Padre):",
+      "targetLabel": "Destino de Fusión:",
+      "childrenLabel": "Ramas derivadas:",
+      "mergedChildrenLabel": "Ramas fusionadas aquí:",
       "collaboratorsHeading": "👥 Colaboradores:",
       "commitsCount": "{count} commits",
       "typesLabel": "Tipos:",
@@ -91,10 +98,16 @@
   },
   "graph": {
     "title": "Grafo de Ramas y Topología Git",
+    "flowchartTitle": "Vista General — Relaciones entre Ramas",
+    "flowchartDesc": "Vista general: relaciones entre ramas, colaboradores y estado de integración.",
+    "gitGraphTitle": "Línea de Tiempo — Historial y Puntos de Fusión",
+    "gitGraphDesc": "Línea de tiempo detallada: punto de bifurcación, commits por rama y puntos de fusión (estilo GitLens).",
     "collaboratorsTitle": "Resumen de Colaboradores por Rama",
     "globalTitle": "Colaboradores Globales",
     "tableBranch": "Rama",
     "tableStatus": "Estado",
+    "tableParent": "Origen (Padre)",
+    "tableMergedInto": "Destino Fusión",
     "tableCollaborators": "Colaboradores Principales",
     "tableCommits": "Commits",
     "tableTypes": "Tipos de Cambio",
@@ -106,7 +119,7 @@
     "terminalTitle": "🌱 Gitdoc — Árbol Topológico de Ramas",
     "unmergedAhead": "{ahead} pendientes",
     "terminalBase": "rama base",
-    "limitWarning": "⚠ Aviso: El repositorio contiene {count} commits (> 150). Se recomienda utilizar la vista simplificada (--simplified)."
+    "limitWarning": "⚠ Aviso: El repositorio contiene {count} commits (> 150). El gráfico de línea de tiempo puede ser muy extenso."
   },
   "sections": {
     "feat": "Nuevas Características",
@@ -181,7 +194,6 @@
       "changelogChoice": "CHANGELOG  (feat, fix, perf, refactor)",
       "papChoice": "PAP        (ci, build + scopes de infraestructura)",
       "graphChoice": "GRAPH      (Diagrama Mermaid, topología y colaboradores)",
-      "simplifiedPrompt": "¿Deseas una vista simplificada (solo ramas y colaboradores) en lugar de detallada?",
       "fromRef": "Referencia de inicio (--from): tag, rama o HEAD:",
       "noFromChoice": "(sin inicio — desde el principio del historial)",
       "toRef": "Referencia de fin (--to):",
@@ -195,6 +207,12 @@
       "confirmVerbose": "¿Activar modo verboso? (incluye más tipos de commit)",
       "previewNotice": "⚠  Modo previsualización — no se escribirán archivos físicos.\n",
       "previewError": "\n❌ Error durante la previsualización: {error}\n"
+    },
+    "graph": {
+      "selectDiagramStyle": "Selecciona el tipo de diagrama Mermaid a generar:",
+      "diagramFlowchart": "Vista general — Relaciones entre ramas y colaboradores (Flowchart LR)",
+      "diagramGitGraph": "Línea de tiempo — Historial de commits y puntos de fusión (gitGraph)",
+      "diagramBoth": "Ambas vistas en el mismo documento (Flowchart + gitGraph)"
     },
     "topology": {
       "header": "\n🌐  Wizard de Topología — Análisis de Ramas y Colaboradores\n",

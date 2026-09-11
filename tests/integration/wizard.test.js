@@ -450,4 +450,71 @@ test('wizard topology — genera GRAPH.md con formato graph interactivo', async 
   }
 });
 
+test('wizard topology — aísla a una rama hija específica y solo presenta ramas hijas en las opciones', async () => {
+  const testOutputPath = path.resolve(projectRoot, 'tmp_wiz_child_graph.md');
+  try { await unlink(testOutputPath); } catch {}
+
+  let branchPromptChoices = [];
+
+  const prompts = {
+    select: (opts) => {
+      // 1. Selección de rama base
+      if (opts.message.includes('base') || opts.message.includes('Base')) {
+        return Promise.resolve('dev');
+      }
+      // 2. Selección de aislar a una rama específica
+      if (opts.message.includes('específica') || opts.message.includes('specific') || opts.message.includes('isolate')) {
+        branchPromptChoices = opts.choices || [];
+        // Seleccionar feat/hito-10 si existe entre las opciones, o la primera opción no vacía
+        const hito10 = opts.choices.find((c) => c.value && c.value.includes('hito-10'));
+        return Promise.resolve(hito10 ? hito10.value : (opts.choices[1]?.value || ''));
+      }
+      // 3. Formato de salida
+      if (opts.message.includes('formato') || opts.message.includes('format') || opts.message.includes('Format')) {
+        return Promise.resolve('graph');
+      }
+      // 4. Estilo de diagrama (ambos)
+      if (opts.message.includes('diagram') || opts.message.includes('estilo') || opts.message.includes('style')) {
+        return Promise.resolve('both');
+      }
+      return Promise.resolve(opts.choices?.[0]?.value ?? '');
+    },
+    input: (opts) => {
+      if (opts.message.includes('salida') || opts.message.includes('output')) {
+        return Promise.resolve('tmp_wiz_child_graph.md');
+      }
+      return Promise.resolve('');
+    },
+    confirm: mockConfirm(false),
+  };
+
+  try {
+    const res = await runWizardTopology(prompts, { lang: 'es' });
+    assert.ok(res.topology);
+
+    // Validar que las opciones mostradas al usuario NO incluyan ramas que no son hijas de dev
+    assert.ok(branchPromptChoices.length > 0, 'debe haber presentado opciones para aislar rama');
+    const choiceValues = branchPromptChoices.map((c) => c.value);
+    assert.ok(choiceValues.includes(''), 'debe incluir la opción de todas las ramas');
+    assert.ok(!choiceValues.includes('main'), 'no debe incluir main como hija de dev');
+
+    // Validar el archivo generado
+    assert.ok(fs.existsSync(testOutputPath), 'tmp_wiz_child_graph.md debe haber sido generado');
+    const content = fs.readFileSync(testOutputPath, 'utf-8');
+
+    // Debe contener flowchart LR con relaciones entre dev y la rama seleccionada
+    assert.ok(content.includes('flowchart LR'), 'debe contener flowchart LR');
+    assert.ok(content.includes('dev'), 'debe contener dev');
+    assert.ok(content.includes('-->|fork|') || content.includes('-->|merge|'), 'debe contener relaciones de fork o merge');
+
+    // Debe contener gitGraph con la rama principal dev y la bifurcación
+    assert.ok(content.includes("mainBranchName': 'dev'"), 'debe configurar dev como mainBranchName en gitGraph');
+    assert.ok(content.includes('gitGraph'), 'debe contener bloque gitGraph');
+    assert.ok(content.includes('checkout dev'), 'debe contener checkout dev');
+  } finally {
+    try { await unlink(testOutputPath); } catch {}
+  }
+});
+
+
 

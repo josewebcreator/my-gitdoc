@@ -85,9 +85,14 @@ program
   .option(t('cli.generate.simplifiedFlag'), t('cli.generate.simplified'))
   .option(t('cli.generate.outputFlag'), t('cli.generate.output'))
   .option(t('cli.generate.templateFlag'), t('cli.generate.template'))
+  .option(t('cli.topology.baseFlag'), t('cli.topology.base'))
   .option('-v, --verbose', t('cli.generate.verbose'))
   .action((tipo, options, cmd) => {
-    const mergedOpts = { ...cmd.optsWithGlobals(), ...options };
+    const mergedOpts = {
+      ...cmd.optsWithGlobals(),
+      ...options,
+      ...(options.base ? { baseBranch: options.base } : {}),
+    };
     return runGenerate(tipo, mergedOpts);
   });
 

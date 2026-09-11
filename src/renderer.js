@@ -243,6 +243,7 @@ export async function renderDocument(commitsOrTopology, tipo, optionsOrScope) {
   let customCatalogs;
   let i18nInstance;
   let simplified = false;
+  let diagramStyle = null;
   let topology = null;
   let collaborators = null;
 
@@ -255,6 +256,7 @@ export async function renderDocument(commitsOrTopology, tipo, optionsOrScope) {
     customCatalogs = optionsOrScope.i18n || optionsOrScope.customCatalogs;
     i18nInstance = optionsOrScope.i18nInstance;
     simplified = !!optionsOrScope.simplified;
+    diagramStyle = optionsOrScope.diagramStyle;
     topology = optionsOrScope.topology || null;
     collaborators = optionsOrScope.collaborators || null;
   } else {
@@ -273,9 +275,16 @@ export async function renderDocument(commitsOrTopology, tipo, optionsOrScope) {
     const topoData = topology || (commitsOrTopology && !Array.isArray(commitsOrTopology) ? (commitsOrTopology.topology || commitsOrTopology) : { branches: [], baseBranch: 'main' });
     const collabData = collaborators || (commitsOrTopology && commitsOrTopology.collaborators ? commitsOrTopology.collaborators : {});
 
-    const mermaidDiagram = simplified
-      ? buildSimplifiedFlowchart(topoData, collabData, { i18nInstance: currentI18n })
-      : buildDetailedGitGraph(topoData, { i18nInstance: currentI18n });
+    // Determinar qué diagramas mostrar:
+    // 'flowchart': solo vista general (simplificada)
+    // 'gitgraph': solo línea de tiempo (detallada)
+    // 'both': ambas vistas
+    const effectiveStyle = diagramStyle || (simplified ? 'flowchart' : 'gitgraph');
+    const showFlowchart = effectiveStyle === 'flowchart' || effectiveStyle === 'both';
+    const showGitGraph = effectiveStyle === 'gitgraph' || effectiveStyle === 'both';
+
+    const mermaidFlowchart = showFlowchart ? buildSimplifiedFlowchart(topoData, collabData, { i18nInstance: currentI18n }) : '';
+    const mermaidGitGraph = showGitGraph ? buildDetailedGitGraph(topoData, { i18nInstance: currentI18n }) : '';
 
     const branchSummary = generateCollaboratorsTableData(topoData, collabData, { i18nInstance: currentI18n });
 
@@ -287,15 +296,26 @@ export async function renderDocument(commitsOrTopology, tipo, optionsOrScope) {
     }));
 
     data = {
-      mermaidDiagram,
+      showFlowchart,
+      showGitGraph,
+      // Compatibilidad con plantillas antiguas que usen {{{mermaidDiagram}}}
+      mermaidDiagram: showFlowchart && !showGitGraph ? mermaidFlowchart : mermaidGitGraph,
+      mermaidFlowchart,
+      mermaidGitGraph,
       branchSummary,
       globalSummary: globalSummary.length > 0 ? globalSummary : null,
       labels: {
         title: translate('graph.title'),
+        flowchartTitle: translate('graph.flowchartTitle'),
+        flowchartDesc: translate('graph.flowchartDesc'),
+        gitGraphTitle: translate('graph.gitGraphTitle'),
+        gitGraphDesc: translate('graph.gitGraphDesc'),
         collaboratorsTitle: translate('graph.collaboratorsTitle'),
         globalTitle: translate('graph.globalTitle'),
         tableBranch: translate('graph.tableBranch'),
         tableStatus: translate('graph.tableStatus'),
+        tableParent: translate('graph.tableParent'),
+        tableMergedInto: translate('graph.tableMergedInto'),
         tableCollaborators: translate('graph.tableCollaborators'),
         tableCommits: translate('graph.tableCommits'),
         tableTypes: translate('graph.tableTypes'),

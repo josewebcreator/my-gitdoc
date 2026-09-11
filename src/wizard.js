@@ -210,14 +210,21 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     ],
   });
 
-  // Si es tipo graph, preguntar granularidad
-  let simplified = false;
+  // Si es tipo graph, preguntar estilo de diagrama
+  let diagramStyle = 'flowchart';
   if (tipo === 'graph') {
-    simplified = await _confirm({
-      message: t('wizard.generate.simplifiedPrompt'),
-      default: false,
+    diagramStyle = await _select({
+      message: t('wizard.graph.selectDiagramStyle'),
+      choices: [
+        { name: t('wizard.graph.diagramFlowchart'), value: 'flowchart' },
+        { name: t('wizard.graph.diagramGitGraph'), value: 'gitgraph' },
+        { name: t('wizard.graph.diagramBoth'), value: 'both' },
+      ],
+      default: 'flowchart',
     });
   }
+
+
 
   // 2. Rango de commits: --from / --to
   const refs = await getGitRefs();
@@ -277,18 +284,22 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     });
   }
 
-  // 6. Verbose
-  const verbose = await _confirm({
-    message: t('wizard.generate.confirmVerbose'),
-    default: false,
-  });
+  // 6. Verbose (solo para changelog y pap)
+  let verbose = false;
+  if (tipo !== 'graph') {
+    verbose = await _confirm({
+      message: t('wizard.generate.confirmVerbose'),
+      default: false,
+    });
+  }
 
   // --- Compilar opciones ---
   const genOptions = {
     from: fromRef || undefined,
     to: toRef === 'HEAD' ? undefined : toRef,
     scope: scopeFilter || undefined,
-    simplified,
+    simplified: diagramStyle === 'flowchart',
+    diagramStyle: tipo === 'graph' ? diagramStyle : undefined,
     dryRun: isDryRun,
     output: outputPath || undefined,
     verbose,
@@ -307,6 +318,7 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
         const metrics = analyzeCollaborators(topo, genOptions);
         const markdown = await renderDocument(topo, 'graph', {
           simplified: genOptions.simplified,
+          diagramStyle: genOptions.diagramStyle,
           topology: topo,
           collaborators: metrics,
           i18nInstance: activeI18n,
@@ -398,12 +410,30 @@ export async function runWizardTopology(prompts = {}, options = {}) {
     default: detectedBase,
   });
 
-  // 3. Filtro opcional por rama específica
+  // Extraer topología preliminar para identificar exclusivamente las ramas hijas de la base seleccionada
+  let childBranches = [];
+  try {
+    const baseTopo = await extractTopology({ ...options, baseBranch: selectedBase });
+    const baseObj = baseTopo.branches.find((b) => b.name === selectedBase);
+    const childSet = new Set([
+      ...(baseObj?.children || []),
+      ...(baseObj?.mergedChildren || []),
+    ]);
+    childBranches = Array.from(childSet).filter((b) => b !== selectedBase);
+  } catch {
+    childBranches = branches.filter((b) => b.name !== selectedBase).map((b) => b.name);
+  }
+
+  const childChoices = childBranches.length > 0
+    ? childBranches.map((name) => ({ name, value: name }))
+    : branches.filter((b) => b.name !== selectedBase).map((b) => ({ name: b.name, value: b.name }));
+
+  // 3. Filtro opcional por rama específica (solo ramas hijas para no saturar al usuario ni al modelo)
   const filterBranchChoice = await _select({
     message: t('wizard.topology.filterBranchPrompt'),
     choices: [
       { name: t('wizard.topology.allBranchesChoice'), value: '' },
-      ...branches.map((b) => ({ name: b.name, value: b.name })),
+      ...childChoices,
     ],
   });
 
@@ -465,16 +495,22 @@ export async function runWizardTopology(prompts = {}, options = {}) {
     }
 
     if (format === 'graph') {
-      const simplified = await _confirm({
-        message: t('wizard.generate.simplifiedPrompt'),
-        default: false,
+      const diagramStyle = await _select({
+        message: t('wizard.graph.selectDiagramStyle'),
+        choices: [
+          { name: t('wizard.graph.diagramFlowchart'), value: 'flowchart' },
+          { name: t('wizard.graph.diagramGitGraph'), value: 'gitgraph' },
+          { name: t('wizard.graph.diagramBoth'), value: 'both' },
+        ],
+        default: 'flowchart',
       });
       const outputPath = await _input({
         message: t('wizard.generate.outputPath'),
         default: 'GRAPH.md',
       });
       const markdown = await renderDocument(topo, 'graph', {
-        simplified,
+        simplified: diagramStyle === 'flowchart',
+        diagramStyle,
         topology: topo,
         collaborators: metrics,
         remoteUrl: existingConfig.remoteUrl || undefined,

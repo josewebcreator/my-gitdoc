@@ -172,5 +172,16 @@ test('CLI Topology - combines positional base branch with -b filter', async () =
   assert.ok(stdout.includes('feat/hito-11'));
 });
 
+test('CLI Topology - branch vs branch analysis preserves both branches in JSON output', async () => {
+  const { code, stdout } = await runCli('topology --base dev --branch feat/hito-10 --json');
+  assert.strictEqual(code, 0);
+  const data = JSON.parse(stdout);
+  assert.strictEqual(data.topology.baseBranch, 'dev');
+  const branchNames = data.topology.branches.map((b) => b.name);
+  assert.ok(branchNames.includes('dev'), 'debe incluir dev');
+  assert.ok(branchNames.some((n) => n.includes('feat/hito-10')), 'debe incluir feat/hito-10');
+});
+
+
 
 
