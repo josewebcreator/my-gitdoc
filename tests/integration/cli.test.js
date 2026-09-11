@@ -28,7 +28,11 @@ function runCli(args, cwd = null) {
 test('CLI - should fail with exit code 1 and red error when tipo is invalid', async () => {
   const { code, stdout, stderr } = await runCli('generate invalid');
   assert.strictEqual(code, 1, 'Exit code should be 1');
-  assert.ok(stderr.includes('Error: El tipo de documento "invalid" no es válido. Debe ser "changelog" o "pap".'), 'Error message should match');
+  assert.ok(
+    stderr.includes('Document type "invalid" is not valid') ||
+    stderr.includes('El tipo de documento "invalid" no es válido'),
+    'Error message should match'
+  );
   assert.ok(stderr.includes('\u001b[31m') || stderr.includes('\x1b[31m'), 'Error message should be colored red');
 });
 
@@ -57,7 +61,11 @@ test('CLI - should fail with exit code 1 and red error when running in a non-git
   try {
     const { code, stderr } = await runCli('generate changelog', nonGitDir);
     assert.strictEqual(code, 1, 'Exit code should be 1');
-    assert.ok(stderr.includes('Error: El directorio actual no es un repositorio Git válido.'), 'Error message should match');
+    assert.ok(
+      stderr.includes('The current directory is not a valid Git repository.') ||
+      stderr.includes('El directorio actual no es un repositorio Git válido.'),
+      'Error message should match'
+    );
     assert.ok(stderr.includes('\u001b[31m') || stderr.includes('\x1b[31m'), 'Error message should be colored red');
   } finally {
     if (fs.existsSync(nonGitDir)) {
@@ -69,7 +77,11 @@ test('CLI - should fail with exit code 1 and red error when running in a non-git
 test('CLI - should fail with exit code 1 and red error when reference is invalid', async () => {
   const { code, stderr } = await runCli('generate changelog --from non-existent-ref');
   assert.strictEqual(code, 1, 'Exit code should be 1');
-  assert.ok(stderr.includes('Error: La referencia "non-existent-ref" no existe'), 'Error message should match');
+  assert.ok(
+    stderr.includes('The reference "non-existent-ref" does not exist') ||
+    stderr.includes('La referencia "non-existent-ref" no existe'),
+    'Error message should match'
+  );
   assert.ok(stderr.includes('\u001b[31m') || stderr.includes('\x1b[31m'), 'Error message should be colored red');
 });
 
@@ -96,7 +108,11 @@ test('CLI - should respect local .gitdocrc.json and merge rules', async () => {
     const { code, stderr } = await runCli('generate changelog');
     // It should fail because there is at least one "feat" commit in the repository
     assert.strictEqual(code, 1, 'Exit code should be 1 due to lint violation');
-    assert.ok(stderr.includes('El commit contiene el término prohibido "feat"'), 'Should report forbidden term "feat"');
+    assert.ok(
+      stderr.includes('Commit contains forbidden term "feat"') ||
+      stderr.includes('El commit contiene el término prohibido "feat"'),
+      'Should report forbidden term "feat"'
+    );
   } finally {
     try { fs.unlinkSync(localConfigPath); } catch {}
   }

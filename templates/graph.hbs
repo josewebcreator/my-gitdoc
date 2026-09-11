@@ -1,0 +1,39 @@
+# {{labels.title}}
+{{#if showFlowchart}}
+
+## {{labels.flowchartTitle}}
+
+> {{labels.flowchartDesc}}
+
+```mermaid
+{{{mermaidFlowchart}}}
+```
+{{/if}}
+{{#if showGitGraph}}
+
+## {{labels.gitGraphTitle}}
+
+> {{labels.gitGraphDesc}}
+
+```mermaid
+{{{mermaidGitGraph}}}
+```
+{{/if}}
+
+## {{labels.collaboratorsTitle}}
+
+| {{labels.tableBranch}} | {{labels.tableStatus}} | {{labels.tableParent}} | {{labels.tableMergedInto}} | {{labels.tableCollaborators}} | {{labels.tableCommits}} | {{labels.tableTypes}} |
+| :--- | :--- | :--- | :--- | :--- | :---: | :--- |
+{{#each branchSummary}}
+| {{#if isCurrent}}* {{/if}}`{{branch}}` | {{statusBadge}} | `{{parentBranch}}` | `{{mergedInto}}` | {{collaboratorsList}} | {{totalCommits}} | {{typesList}} |
+{{/each}}
+{{#if globalSummary}}
+
+## {{labels.globalTitle}}
+
+| {{labels.tableCollaborators}} | {{labels.tableCommits}} | {{labels.tableTypes}} | {{labels.tableScopes}} |
+| :--- | :---: | :--- | :--- |
+{{#each globalSummary}}
+| {{name}} | {{commitsCount}} | {{typesList}} | {{scopesList}} |
+{{/each}}
+{{/if}}

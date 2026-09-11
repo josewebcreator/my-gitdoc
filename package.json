@@ -1,6 +1,6 @@
 {
   "name": "tu-doc-cli",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "description": "CLI de Documentación Automática basado en Conventional Commits",
   "main": "bin/cli.js",
   "repository": {
@@ -8,7 +8,8 @@
     "url": "https://github.com/josewebcreator/my-gitdoc.git"
   },
   "bin": {
-    "tu-doc-cli": "./bin/cli.js"
+    "tu-doc-cli": "./bin/cli.js",
+    "gitdoc": "./bin/cli.js"
   },
   "files": [
     "bin",
@@ -41,6 +42,7 @@
     "commander": "^15.0.0",
     "conventional-commits-parser": "^6.4.0",
     "handlebars": "^4.7.9",
+    "i18n": "^0.15.4",
     "picocolors": "^1.1.1",
     "simple-git": "^3.36.0"
   }

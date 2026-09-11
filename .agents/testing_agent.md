@@ -14,7 +14,16 @@ Eres el **Ingeniero de Calidad y Pruebas (QA Agent)** del proyecto CLI de Docume
 
 ### 2. Pruebas de Integración (Entorno Controlado)
 *   **Mocking de Git:** Dado que el CLI lee repositorios locales con `simple-git`, debes diseñar un mecanismo para inicializar un repositorio git temporal (`tmp-repo-test`) durante las pruebas, crear commits ficticios con mensajes específicos (tanto válidos como inválidos) y ejecutar el CLI sobre ese directorio.
-*   **Comandos y Flags:** Probar que flags como `--desde`, `--scope` y `--dry-run` restrinjan o modifiquen la salida según lo esperado.
+*   **Comandos y Flags:** Probar que flags como `--desde`, `--scope`, `--branch`, `--author` y `--dry-run` restrinjan o modifiquen la salida según lo esperado.
+
+### 3. Pruebas de Casos de Error y Casos Extremos (Negative Testing)
+*   **No limitarse al *Happy Path*:** Probar exhaustivamente situaciones anómalas y de fallo:
+    *   Directorios que no son repositorios Git válidos.
+    *   Repositorios sin commits (vacíos).
+    *   Referencias inexistentes o malformadas pasadas a `--from`, `--to` o `--branch`.
+    *   Filtros que no producen coincidencias (`--author` inexistente, ventanas `--since`/`--until` fuera de rango).
+    *   Comprobación de códigos de salida (`code === 1`), impresión en color rojo y mensajes explicativos.
+*   **Cobertura Bilingüe (i18n):** Verificar que los mensajes informativos y de error se adapten correctamente a `--lang en` y `--lang es`.
 
 ---
 

@@ -2,29 +2,26 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
+import { t, getI18n, createI18n } from './i18n/index.js';
+import {
+  buildDetailedGitGraph,
+  buildSimplifiedFlowchart,
+  generateCollaboratorsTableData,
+} from './graph/mermaid.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Helper Handlebars para traducir claves de i18n
+Handlebars.registerHelper('t', function(key, options) {
+  const params = (options && options.hash) ? options.hash : {};
+  return t(key, params);
+});
 
 // --- Tipos permitidos por variante ---
 
 const CHANGELOG_TYPES = new Set(['feat', 'fix', 'perf', 'refactor']);
 const PAP_TYPES = new Set(['ci', 'build']);
 const PAP_INFRA_SCOPES = new Set(['db', 'infra', 'docker', 'config']);
-
-// Mapeo tipo → título de sección en español
-const TYPE_TITLES = {
-  feat:     'Nuevas Características',
-  fix:      'Correcciones de Bugs',
-  perf:     'Mejoras de Rendimiento',
-  refactor: 'Refactorizaciones',
-  docs:     'Documentación',
-  style:    'Estilos',
-  test:     'Pruebas',
-  build:    'Compilación',
-  ci:       'Integración Continua',
-  chore:    'Otros Cambios',
-  revert:   'Reversiones',
-};
 
 // --- Hito 7: Directivas técnicas ---
 
@@ -72,11 +69,19 @@ export function parseInstructions(body) {
 export function generateRemoteLinks(text, remoteUrl) {
   if (!remoteUrl || !text) return text;
 
+  // Preservar bloques de código cercados (como ```mermaid ... ```) intactos para no corromper su sintaxis
+  const codeBlocks = [];
+  const placeholderText = text.replace(/(```[\s\S]*?```)/g, (match) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(match);
+    return `__CODE_BLOCK_${idx}__`;
+  });
+
   // Normalizar: eliminar trailing slash
   const base = remoteUrl.replace(/\/$/, '');
 
   // Reemplazar hashes largos (40 hex) antes que cortos (7 hex) para evitar colisiones
-  let result = text.replace(
+  let result = placeholderText.replace(
     /\b([0-9a-f]{40})\b/g,
     (_, hash) => `[${hash.slice(0, 7)}](${base}/commit/${hash})`
   );
@@ -93,6 +98,9 @@ export function generateRemoteLinks(text, remoteUrl) {
     (_, num) => `[#${num}](${base}/issues/${num})`
   );
 
+  // Restaurar los bloques de código cercados
+  result = result.replace(/__CODE_BLOCK_(\d+)__/g, (_, idx) => codeBlocks[Number(idx)]);
+
   return result;
 }
 
@@ -103,9 +111,10 @@ export function generateRemoteLinks(text, remoteUrl) {
  * @param {object[]} commits  - Commits parseados por parseCommit()
  * @param {string|undefined} scopeFilter - Scope a filtrar (flag --scope)
  * @param {boolean} verbose - Indica si se incluye verbosidad y otros tipos
+ * @param {object|null} [i18nInstance] - Instancia opcional de i18n para resolución localizada de títulos
  * @returns {{ breakingChanges: object[], sections: { title: string, commits: object[] }[] }}
  */
-export function groupForChangelog(commits, scopeFilter, verbose = false) {
+export function groupForChangelog(commits, scopeFilter, verbose = false, i18nInstance = null) {
   const allowedTypes = verbose
     ? new Set(['feat', 'fix', 'perf', 'refactor', 'docs', 'style', 'test', 'build', 'ci', 'chore', 'revert'])
     : CHANGELOG_TYPES;
@@ -119,6 +128,7 @@ export function groupForChangelog(commits, scopeFilter, verbose = false) {
   const breakingChanges = [];
   // sections indexado por tipo para mantener orden
   const sectionMap = new Map();
+  const translate = (i18nInstance && i18nInstance.t) || t;
 
   for (const commit of filtered) {
     // Detectar breaking change: notes con title BREAKING CHANGE
@@ -131,7 +141,13 @@ export function groupForChangelog(commits, scopeFilter, verbose = false) {
     }
 
     // Siempre añadir a su sección de tipo (incluso si es breaking change)
-    const title = TYPE_TITLES[commit.type] || (commit.type ? commit.type.charAt(0).toUpperCase() + commit.type.slice(1) : 'Otros');
+    const titleKey = `sections.${commit.type}`;
+    const translated = translate(titleKey);
+    const fallbackTitle = commit.type
+      ? commit.type.charAt(0).toUpperCase() + commit.type.slice(1)
+      : translate('sections.other');
+    const title = (translated && translated !== titleKey) ? translated : fallbackTitle;
+
     if (!sectionMap.has(commit.type)) {
       sectionMap.set(commit.type, { title, commits: [] });
     }
@@ -198,7 +214,7 @@ export function groupForPap(commits, scopeFilter) {
 /**
  * Carga de forma asíncrona la plantilla .hbs correspondiente al tipo.
  *
- * @param {'changelog'|'pap'} tipo
+ * @param {'changelog'|'pap'|'graph'} tipo
  * @param {string|undefined} customTemplatePath - Ruta de plantilla personalizada
  * @returns {Promise<string>} Contenido raw de la plantilla
  */
@@ -213,48 +229,132 @@ export async function loadTemplate(tipo, customTemplatePath) {
  * Orquesta el renderizado completo: agrupa, carga plantilla e inyecta con Handlebars.
  * Si `options.remoteUrl` está definido, aplica autolinking de hashes e issues en el markdown final.
  *
- * @param {object[]} commits     - Commits parseados y validados
- * @param {'changelog'|'pap'} tipo
+ * @param {object[]|object} commitsOrTopology - Commits parseados o resultado topológico
+ * @param {'changelog'|'pap'|'graph'} tipo
  * @param {object|string|undefined} optionsOrScope - Objeto de opciones o filtro de scope (compatibilidad)
  * @returns {Promise<string>} Markdown renderizado listo para escribir o imprimir
  */
-export async function renderDocument(commits, tipo, optionsOrScope) {
+export async function renderDocument(commitsOrTopology, tipo, optionsOrScope) {
   let scopeFilter;
   let templatePath;
   let verbose = false;
   let remoteUrl;
+  let lang;
+  let customCatalogs;
+  let i18nInstance;
+  let simplified = false;
+  let diagramStyle = null;
+  let topology = null;
+  let collaborators = null;
 
   if (optionsOrScope && typeof optionsOrScope === 'object') {
     scopeFilter = optionsOrScope.scope;
     templatePath = optionsOrScope.template;
     verbose = !!optionsOrScope.verbose;
     remoteUrl = optionsOrScope.remoteUrl;
+    lang = optionsOrScope.lang || optionsOrScope.locale;
+    customCatalogs = optionsOrScope.i18n || optionsOrScope.customCatalogs;
+    i18nInstance = optionsOrScope.i18nInstance;
+    simplified = !!optionsOrScope.simplified;
+    diagramStyle = optionsOrScope.diagramStyle;
+    topology = optionsOrScope.topology || null;
+    collaborators = optionsOrScope.collaborators || null;
   } else {
     scopeFilter = optionsOrScope;
   }
 
-  // Inyectar verbose flag en cada commit para simplificar plantillas
-  const commitsWithVerbose = commits.map(c => ({
-    ...c,
-    verbose
-  }));
+  const currentI18n = i18nInstance
+    || ((lang || customCatalogs) ? createI18n({ lang, customCatalogs }) : getI18n());
+  const translate = currentI18n.t;
 
   const templateContent = await loadTemplate(tipo, templatePath);
   const template = Handlebars.compile(templateContent);
 
   let data;
-  if (tipo === 'changelog') {
-    data = groupForChangelog(commitsWithVerbose, scopeFilter, verbose);
+  if (tipo === 'graph') {
+    const topoData = topology || (commitsOrTopology && !Array.isArray(commitsOrTopology) ? (commitsOrTopology.topology || commitsOrTopology) : { branches: [], baseBranch: 'main' });
+    const collabData = collaborators || (commitsOrTopology && commitsOrTopology.collaborators ? commitsOrTopology.collaborators : {});
+
+    // Determinar qué diagramas mostrar:
+    // 'flowchart': solo vista general (simplificada)
+    // 'gitgraph': solo línea de tiempo (detallada)
+    // 'both': ambas vistas
+    const effectiveStyle = diagramStyle || (simplified ? 'flowchart' : 'gitgraph');
+    const showFlowchart = effectiveStyle === 'flowchart' || effectiveStyle === 'both';
+    const showGitGraph = effectiveStyle === 'gitgraph' || effectiveStyle === 'both';
+
+    const mermaidFlowchart = showFlowchart ? buildSimplifiedFlowchart(topoData, collabData, { i18nInstance: currentI18n }) : '';
+    const mermaidGitGraph = showGitGraph ? buildDetailedGitGraph(topoData, { i18nInstance: currentI18n }) : '';
+
+    const branchSummary = generateCollaboratorsTableData(topoData, collabData, { i18nInstance: currentI18n });
+
+    const globalSummary = (collabData?.global || []).map(g => ({
+      name: g.name,
+      commitsCount: g.commitsCount,
+      typesList: Object.entries(g.types || {}).map(([k, v]) => `${k}:${v}`).join(', ') || '-',
+      scopesList: (g.scopes || []).join(', ') || '-',
+    }));
+
+    data = {
+      showFlowchart,
+      showGitGraph,
+      // Compatibilidad con plantillas antiguas que usen {{{mermaidDiagram}}}
+      mermaidDiagram: showFlowchart && !showGitGraph ? mermaidFlowchart : mermaidGitGraph,
+      mermaidFlowchart,
+      mermaidGitGraph,
+      branchSummary,
+      globalSummary: globalSummary.length > 0 ? globalSummary : null,
+      labels: {
+        title: translate('graph.title'),
+        flowchartTitle: translate('graph.flowchartTitle'),
+        flowchartDesc: translate('graph.flowchartDesc'),
+        gitGraphTitle: translate('graph.gitGraphTitle'),
+        gitGraphDesc: translate('graph.gitGraphDesc'),
+        collaboratorsTitle: translate('graph.collaboratorsTitle'),
+        globalTitle: translate('graph.globalTitle'),
+        tableBranch: translate('graph.tableBranch'),
+        tableStatus: translate('graph.tableStatus'),
+        tableParent: translate('graph.tableParent'),
+        tableMergedInto: translate('graph.tableMergedInto'),
+        tableCollaborators: translate('graph.tableCollaborators'),
+        tableCommits: translate('graph.tableCommits'),
+        tableTypes: translate('graph.tableTypes'),
+        tableScopes: translate('graph.tableScopes'),
+      },
+    };
   } else {
-    data = groupForPap(commitsWithVerbose, scopeFilter);
+    const commits = Array.isArray(commitsOrTopology) ? commitsOrTopology : [];
+    // Inyectar verbose flag en cada commit para simplificar plantillas
+    const commitsWithVerbose = commits.map(c => ({
+      ...c,
+      verbose
+    }));
+
+    if (tipo === 'changelog') {
+      data = groupForChangelog(commitsWithVerbose, scopeFilter, verbose, currentI18n);
+      data.labels = {
+        breakingChanges: translate('sections.breakingChanges'),
+      };
+    } else {
+      data = groupForPap(commitsWithVerbose, scopeFilter);
+      data.labels = {
+        title: translate('pap.title'),
+        component: translate('pap.component'),
+        run: translate('pap.directives.run'),
+        rollback: translate('pap.directives.rollback'),
+        verify: translate('pap.directives.verify'),
+      };
+    }
   }
 
   let markdown = template(data);
 
-  // Hito 7: aplicar autolinking remoto si remoteUrl está configurado
+  // Hito 7 & 12: aplicar autolinking remoto si remoteUrl está configurado
   if (remoteUrl) {
     markdown = generateRemoteLinks(markdown, remoteUrl);
   }
 
   return markdown;
 }
+
+export { generateHtmlViewer, renderHtmlViewer } from './graph/html.js';

@@ -11,6 +11,7 @@ Eres el **Ingeniero de Software y Desarrollador Core** del CLI de Documentación
 *   **Git Integration:** `simple-git` para interactuar con los repositorios locales de forma asíncrona.
 *   **Parser de Commits:** `conventional-commits-parser` para estructurar los mensajes de commit.
 *   **Feedback visual:** `chalk` o `picocolors` para colorear la salida en terminal.
+*   **Internacionalización:** `src/i18n` con catálogos centralizados en `es` y `en`.
 
 ---
 
@@ -23,14 +24,20 @@ Eres el **Ingeniero de Software y Desarrollador Core** del CLI de Documentación
     *   `src/parser.js` (parseo e integración con `conventional-commits-parser`).
     *   `src/linter.js` (validación estática de commits con las reglas de negocio).
     *   `src/renderer.js` (agrupamiento de commits e inyección en plantillas markdown).
+    *   `src/graph/` (extracción topológica y análisis de colaboradores).
+    *   `src/i18n/` (motor central de internacionalización).
 
 ### 2. Manejo de Errores y Robustez
 *   El CLI debe ser silencioso ante ejecuciones exitosas (salvo que se use `--verbose` o flags de depuración) y debe retornar códigos de salida estándar (`process.exit(1)` en caso de error en linter o git, y `process.exit(0)` si es exitoso).
-*   Si el Linter de Negocio falla, se debe imprimir en color rojo (`chalk.red`) el commit ofensivo y el motivo detallado de la regla rota, abortando la generación de archivos para asegurar que la documentación sea de alta calidad.
+*   Si el Linter de Negocio falla, se debe imprimir en color rojo (`chalk.red` o `picocolors.red`) el commit ofensivo y el motivo detallado de la regla rota, abortando la generación de archivos para asegurar que la documentación sea de alta calidad.
 
 ### 3. Distribución
 *   Mantener el shebang `#!/usr/bin/env node` al inicio del ejecutable.
 *   Configurar `"bin"` en `package.json` apuntando a `bin/cli.js`.
+
+### 4. Internacionalización Obligatoria (i18n)
+*   Todo nuevo comando, opción de Commander, encabezado de salida, mensaje informativo y mensaje de error DEBE estar debidamente localizado mediante el helper `t('clave')` utilizando los catálogos en `src/i18n/locales/es.json` y `src/i18n/locales/en.json`.
+*   Queda estrictamente prohibido introducir cadenas de texto visibles al usuario en un único idioma sin su correspondiente par bilingüe.
 
 ---
 
@@ -38,3 +45,4 @@ Eres el **Ingeniero de Software y Desarrollador Core** del CLI de Documentación
 *   Configurar la estructura del proyecto Node.js.
 *   Implementar la lógica del pipeline de procesamiento fase por fase.
 *   Asegurar que la bandera `--dry-run` imprima el resultado en consola sin escribir archivos.
+*   Mantener la sincronización de claves en los catálogos de internacionalización ante cualquier nuevo desarrollo.
