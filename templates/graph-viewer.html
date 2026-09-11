@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gitdoc — Repository Graph & Topology</title>
+  <style>
+    /* -------------------------------------------------------------------------
+       GitLab Native Technical Design System (Anti-Cards / High Density)
+       ------------------------------------------------------------------------- */
+    :root {
+      --gl-bg: #18191d;
+      --gl-sub-bg: #1f1e24;
+      --gl-panel-bg: #1d1d22;
+      --gl-border: #28292d;
+      --gl-border-light: #36373d;
+      --gl-text: #ececef;
+      --gl-text-muted: #89888d;
+      --gl-text-subtle: #5f5e64;
+      --gl-accent: #7b58cf;
+      --gl-accent-hover: #8f6ee0;
+      --gl-accent-light: rgba(123, 88, 207, 0.15);
+      
+      --gl-status-base: #10b981;
+      --gl-status-active: #3b82f6;
+      --gl-status-merged: #8b5cf6;
+      --gl-status-diverged: #f59e0b;
+      
+      --gl-lane-0: #6366f1;
+      --gl-lane-1: #10b981;
+      --gl-lane-2: #f59e0b;
+      --gl-lane-3: #ec4899;
+      --gl-lane-4: #06b6d4;
+      --gl-lane-5: #8b5cf6;
+      --gl-lane-6: #14b8a6;
+      --gl-lane-7: #f97316;
+
+      --gl-type-feat: #10b981;
+      --gl-type-fix: #ef4444;
+      --gl-type-perf: #f59e0b;
+      --gl-type-refactor: #8b5cf6;
+      --gl-type-docs: #06b6d4;
+      --gl-type-chore: #6b7280;
+
+      --gl-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --gl-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+      --row-height: 38px;
+    }
+
+    [data-theme="light"] {
+      --gl-bg: #ffffff;
+      --gl-sub-bg: #f6f8fa;
+      --gl-panel-bg: #ffffff;
+      --gl-border: #d0d7de;
+      --gl-border-light: #e1e4e8;
+      --gl-text: #24292f;
+      --gl-text-muted: #57606a;
+      --gl-text-subtle: #8c959f;
+      --gl-accent: #6f42c1;
+      --gl-accent-hover: #8250df;
+      --gl-accent-light: rgba(111, 66, 193, 0.12);
+
+      --gl-lane-0: #4f46e5;
+      --gl-lane-1: #059669;
+      --gl-lane-2: #d97706;
+      --gl-lane-3: #db2777;
+      --gl-lane-4: #0891b2;
+      --gl-lane-5: #7c3aed;
+      --gl-lane-6: #0d9488;
+      --gl-lane-7: #ea580c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--gl-bg);
+      color: var(--gl-text);
+      font-family: var(--gl-font-sans);
+      font-size: 13px;
+      line-height: 1.4;
+      overflow-x: hidden;
+    }
+
+    /* -------------------------------------------------------------------------
+       Technical Header & Controls
+       ------------------------------------------------------------------------- */
+    header.gl-header {
+      background-color: var(--gl-sub-bg);
+      border-bottom: 1px solid var(--gl-border);
+      padding: 0 16px;
+      height: 48px;
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-sizing: border-box;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .brand-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #7b58cf, #ec4899);
+      color: #ffffff;
+      border-radius: 6px;
+      font-weight: bold;
+      font-family: var(--gl-font-mono);
+      font-size: 13px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .brand-info {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .brand-info h1 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gl-text);
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+    }
+
+    .brand-info span {
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      font-family: var(--gl-font-mono);
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1250px) {
+      .brand-info span {
+        display: none;
+      }
+    }
+
+    .toolbar-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Nav Buttons / View Selector */
+    .view-switcher {
+      display: inline-flex;
+      background-color: var(--gl-bg);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .view-btn {
+      background: transparent;
+      border: none;
+      color: var(--gl-text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .view-btn:hover {
+      color: var(--gl-text);
+      background-color: var(--gl-sub-bg);
+    }
+
+    .view-btn.active {
+      color: #ffffff;
+      background-color: var(--gl-accent);
+    }
+
+    /* Inputs & Selects */
+    .gl-select, .gl-input {
+      background-color: var(--gl-bg);
+      color: var(--gl-text);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 3px 8px;
+      height: 28px;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s ease;
+      font-family: inherit;
+    }
+
+    .gl-select:focus, .gl-input:focus {
+      border-color: var(--gl-accent);
+    }
+
+    .search-input {
+      width: 140px;
+      font-family: var(--gl-font-mono);
+      transition: width 0.2s ease, border-color 0.15s ease;
+    }
+
+    .search-input:focus {
+      width: 180px;
+    }
+
+    #scope-select {
+      max-width: 160px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    #author-select {
+      max-width: 140px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* Action Buttons */
+    .gl-btn {
+      background-color: var(--gl-bg);
+      color: var(--gl-text);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 0 10px;
+      height: 28px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+      font-family: inherit;
+      user-select: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .gl-btn:hover {
+      background-color: var(--gl-border);
+    }
+
+    .gl-btn-primary {
+      background-color: var(--gl-accent);
+      color: #ffffff;
+      border-color: var(--gl-accent);
+    }
+
+    .gl-btn-primary:hover {
+      background-color: var(--gl-accent-hover);
+    }
+
+    .gl-toggle-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--gl-text-muted);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .gl-toggle-container input {
+      accent-color: var(--gl-accent);
+      cursor: pointer;
+    }
+
+    /* -------------------------------------------------------------------------
+       Active Scope Banner
+       ------------------------------------------------------------------------- */
+    #scope-banner {
+      display: none;
+      background-color: var(--gl-accent-light);
+      border-bottom: 1px solid var(--gl-accent);
+      padding: 6px 16px;
+      font-size: 12px;
+      color: var(--gl-text);
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #scope-banner.active {
+      display: flex;
+    }
+
+    .scope-clear-btn {
+      background: transparent;
+      border: 1px solid var(--gl-accent);
+      color: var(--gl-text);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .scope-clear-btn:hover {
+      background-color: var(--gl-accent);
+      color: #ffffff;
+    }
+
+    /* -------------------------------------------------------------------------
+       Layout Containers
+       ------------------------------------------------------------------------- */
+    .main-layout {
+      display: flex;
+      height: calc(100vh - 51px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .view-container {
+      flex: 1;
+      height: 100%;
+      overflow: auto;
+      display: none;
+    }
+
+    .view-container.active {
+      display: block;
+    }
+
+    /* -------------------------------------------------------------------------
+       View 1: Commit Graph (GitLab Network Graph Style)
+       ------------------------------------------------------------------------- */
+    #view-graph {
+      position: relative;
+      user-select: none;
+    }
+
+    .graph-grid {
+      display: flex;
+      min-width: 100%;
+      position: relative;
+    }
+
+    .graph-svg-col {
+      position: sticky;
+      left: 0;
+      z-index: 10;
+      background-color: var(--gl-bg);
+      border-right: 1px solid var(--gl-border);
+      flex-shrink: 0;
+    }
+
+    .commits-table-col {
+      flex: 1;
+      min-width: 600px;
+    }
+
+    .commit-row {
+      min-height: var(--row-height);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--gl-border);
+      cursor: pointer;
+      transition: background-color 0.1s ease;
+      font-size: 12px;
+      gap: 4px;
+    }
+
+    .commit-row-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    .commit-row-body {
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      white-space: pre-wrap;
+      margin-left: 72px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 2px solid var(--gl-accent);
+      border-radius: 2px;
+      line-height: 1.4;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .verbose-status-badge {
+      font-family: var(--gl-font-mono);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background-color: var(--gl-accent-light);
+      color: var(--gl-accent);
+      border: 1px solid var(--gl-accent);
+      font-weight: 600;
+      margin-left: 6px;
+      display: none;
+    }
+
+    .commit-row:hover {
+      background-color: var(--gl-sub-bg);
+    }
+
+    .commit-row.selected {
+      background-color: var(--gl-accent-light);
+      border-left: 2px solid var(--gl-accent);
+    }
+
+    .commit-row.dimmed {
+      opacity: 0.25;
+    }
+
+    .commit-row.highlighted {
+      background-color: rgba(123, 88, 207, 0.2);
+    }
+
+    .commit-row.non-conventional {
+      opacity: 0.65;
+    }
+
+    .commit-hash {
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      width: 64px;
+      flex-shrink: 0;
+    }
+
+    .commit-hash:hover {
+      color: var(--gl-accent);
+      text-decoration: underline;
+    }
+
+    .commit-badges {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .gl-badge {
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--gl-border);
+      background-color: var(--gl-sub-bg);
+      color: var(--gl-text);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .gl-badge-branch {
+      border-color: rgba(99, 102, 241, 0.4);
+      background-color: rgba(99, 102, 241, 0.12);
+      color: #818cf8;
+    }
+
+    .gl-badge-type {
+      font-weight: 600;
+      border-radius: 4px;
+    }
+
+    .gl-badge-type-feat { color: var(--gl-type-feat); border-color: rgba(16, 185, 129, 0.3); background-color: rgba(16, 185, 129, 0.1); }
+    .gl-badge-type-fix { color: var(--gl-type-fix); border-color: rgba(239, 68, 68, 0.3); background-color: rgba(239, 68, 68, 0.1); }
+    .gl-badge-type-perf { color: var(--gl-type-perf); border-color: rgba(245, 158, 11, 0.3); background-color: rgba(245, 158, 11, 0.1); }
+    .gl-badge-type-refactor { color: var(--gl-type-refactor); border-color: rgba(139, 92, 246, 0.3); background-color: rgba(139, 92, 246, 0.1); }
+    .gl-badge-type-docs { color: var(--gl-type-docs); border-color: rgba(6, 182, 212, 0.3); background-color: rgba(6, 182, 212, 0.1); }
+    .gl-badge-type-chore { color: var(--gl-type-chore); border-color: rgba(107, 114, 128, 0.3); background-color: rgba(107, 114, 128, 0.1); }
+
+    .commit-message {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--gl-text);
+    }
+
+    .commit-author {
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      width: 140px;
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .author-avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background-color: var(--gl-border);
+      color: var(--gl-text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .commit-date {
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      color: var(--gl-text-subtle);
+      width: 90px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* -------------------------------------------------------------------------
+       View 2: Branch Tree View (DOM Hierarchical)
+       ------------------------------------------------------------------------- */
+    #view-tree {
+      padding: 16px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .tree-header-info {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--gl-border);
+      padding-bottom: 8px;
+    }
+
+    .tree-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tree-node {
+      margin-bottom: 8px;
+      border-left: 1px solid var(--gl-border-light);
+      padding-left: 12px;
+      position: relative;
+    }
+
+    .tree-node::before {
+      content: "";
+      position: absolute;
+      top: 14px;
+      left: 0;
+      width: 10px;
+      height: 1px;
+      background-color: var(--gl-border-light);
+    }
+
+    .branch-card {
+      background-color: var(--gl-sub-bg);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      transition: border-color 0.15s ease;
+    }
+
+    .branch-card:hover {
+      border-color: var(--gl-border-light);
+    }
+
+    .branch-card.is-base {
+      border-color: var(--gl-status-base);
+    }
+
+    .branch-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .branch-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .branch-name {
+      font-family: var(--gl-font-mono);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--gl-text);
+    }
+
+    .status-badge {
+      font-size: 10px;
+      font-family: var(--gl-font-mono);
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: lowercase;
+    }
+
+    .status-base { background: rgba(16, 185, 129, 0.15); color: var(--gl-status-base); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-active { background: rgba(59, 130, 246, 0.15); color: var(--gl-status-active); border: 1px solid rgba(59, 130, 246, 0.3); }
+    .status-merged { background: rgba(139, 92, 246, 0.15); color: var(--gl-status-merged); border: 1px solid rgba(139, 92, 246, 0.3); }
+    .status-diverged { background: rgba(245, 158, 11, 0.15); color: var(--gl-status-diverged); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    .branch-metrics {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--gl-text-muted);
+    }
+
+    .branch-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tree-commit-list {
+      margin-top: 8px;
+      border-top: 1px solid var(--gl-border);
+      padding-top: 8px;
+      display: none;
+    }
+
+    .tree-commit-list.open {
+      display: block;
+    }
+
+    .tree-commit-item {
+      display: flex;
+      flex-direction: column;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      border-left: 2px solid transparent;
+    }
+
+    .tree-commit-item:hover {
+      background-color: var(--gl-bg);
+    }
+
+    .tree-commit-item.diff-ahead {
+      border-left-color: #10b981;
+    }
+
+    .tree-commit-item.diff-behind {
+      border-left-color: #f59e0b;
+    }
+
+    .tree-commit-item.diff-merged {
+      border-left-color: #8b5cf6;
+    }
+
+    .tree-commit-section {
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+
+    .tree-commit-section-header {
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tree-commit-section-header.ahead {
+      background-color: rgba(16, 185, 129, 0.12);
+      color: #10b981;
+      border-left: 3px solid #10b981;
+    }
+
+    .tree-commit-section-header.behind {
+      background-color: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+      border-left: 3px solid #f59e0b;
+    }
+
+    .tree-commit-section-header.merged {
+      background-color: rgba(139, 92, 246, 0.12);
+      color: #8b5cf6;
+      border-left: 3px solid #8b5cf6;
+    }
+
+    .tree-diff-badge {
+      font-family: var(--gl-font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .tree-diff-badge.diff-ahead {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .tree-diff-badge.diff-behind {
+      background-color: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .tree-diff-badge.diff-merged {
+      background-color: rgba(139, 92, 246, 0.2);
+      color: #8b5cf6;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+    }
+
+    .tree-commit-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .tree-commit-subject {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tree-commit-author {
+      color: var(--gl-text-muted);
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .tree-commit-body {
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      white-space: pre-wrap;
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 2px solid var(--gl-accent);
+      border-radius: 2px;
+      line-height: 1.3;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    .tree-more-commits {
+      color: var(--gl-accent);
+      font-size: 11px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+
+    /* Merge Summary Block inside Tree */
+    .merge-summary-banner {
+      background-color: rgba(139, 92, 246, 0.08);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--gl-text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .merge-summary-title {
+      font-weight: 600;
+      color: var(--gl-status-merged);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* -------------------------------------------------------------------------
+       View 3: Branch Relations Only (Pure DAG)
+       ------------------------------------------------------------------------- */
+    #view-relations {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .bilateral-panel {
+      background-color: var(--gl-sub-bg);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .bilateral-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bilateral-selectors {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .bilateral-selector-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .bilateral-selector-group label {
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      font-weight: 500;
+    }
+
+    .bilateral-result {
+      background-color: var(--gl-bg);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .relations-dag-canvas {
+      width: 100%;
+      min-height: 400px;
+      background-color: var(--gl-bg);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      overflow: auto;
+      position: relative;
+    }
+
+    /* -------------------------------------------------------------------------
+       Side Inspector Panel
+       ------------------------------------------------------------------------- */
+    #inspector-panel,
+    .inspector-panel {
+      width: 380px;
+      height: 100%;
+      background-color: var(--gl-panel-bg) !important;
+      color: var(--gl-text) !important;
+      border-left: 1px solid var(--gl-border) !important;
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 50;
+      box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
+      animation: slideIn 0.15s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    #inspector-panel.open,
+    .inspector-panel.open {
+      display: flex !important;
+    }
+
+    .inspector-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gl-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--gl-sub-bg);
+      color: var(--gl-text);
+      flex-shrink: 0;
+    }
+
+    .inspector-header h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gl-text);
+      margin: 0;
+    }
+
+    .inspector-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--gl-text-muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .inspector-close-btn:hover {
+      color: var(--gl-text);
+      background-color: var(--gl-border);
+    }
+
+    .inspector-content {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background-color: var(--gl-panel-bg);
+      color: var(--gl-text);
+    }
+
+    .inspector-prop {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .inspector-label {
+      font-size: 11px;
+      color: var(--gl-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .inspector-value {
+      font-size: 12px;
+      color: var(--gl-text);
+      word-break: break-word;
+    }
+
+    .inspector-hash-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--gl-bg);
+      padding: 6px 10px;
+      border: 1px solid var(--gl-border);
+      border-radius: 4px;
+      font-family: var(--gl-font-mono);
+      font-size: 12px;
+      color: var(--gl-text);
+    }
+
+    .inspector-body-box {
+      background-color: var(--gl-bg);
+      padding: 8px 10px;
+      border: 1px solid var(--gl-border);
+      border-radius: 4px;
+      font-family: var(--gl-font-mono);
+      font-size: 11px;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+      color: var(--gl-text);
+    }
+
+    /* Modal / Card for Git-style merge summary */
+    .merge-card {
+      background-color: var(--gl-sub-bg);
+      border: 1px solid var(--gl-border);
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .merge-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gl-status-merged);
+      margin-bottom: 8px;
+    }
+
+    .types-summary-grid {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    /* -------------------------------------------------------------------------
+       Print Styles (@media print)
+       ------------------------------------------------------------------------- */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 10pt;
+      }
+
+      header.gl-header,
+      .view-switcher,
+      .toolbar-section,
+      .inspector-panel,
+      #inspector-panel,
+      #scope-banner,
+      .scope-clear-btn,
+      .branch-actions,
+      .btn-group {
+        display: none !important;
+      }
+
+      .main-layout {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .view-container {
+        display: none !important;
+      }
+
+      .view-container.active {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .print-report-header {
+        display: block !important;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #000000;
+        padding-bottom: 8px;
+      }
+
+      .branch-card {
+        background: #ffffff !important;
+        border: 1px solid #cccccc !important;
+        page-break-inside: avoid;
+        color: #000000 !important;
+      }
+
+      .commit-row {
+        background: transparent !important;
+        color: #000000 !important;
+        border-bottom: 1px solid #eeeeee !important;
+      }
+
+      .merge-summary-banner {
+        background: #f8f9fa !important;
+        border: 1px solid #999999 !important;
+        color: #000000 !important;
+      }
+    }
+
+    .print-report-header {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Encabezado de impresión solo visible al imprimir -->
+  <div class="print-report-header" style="display: none;">
+    <h1 id="print-header-title">Gitdoc — Reporte Topológico y Análisis de Scope</h1>
+    <p id="print-header-meta"><span id="label-print-header-meta">Generado con Gitdoc CLI</span> • <span id="print-date"></span></p>
+  </div>
+
+  <!-- Barra de Navegación Técnica de Alta Densidad GitLab -->
+  <header class="gl-header">
+    <div class="brand-section">
+      <div class="brand-logo">GD</div>
+      <div class="brand-info">
+        <h1 id="ui-brand-title">Gitdoc</h1>
+        <span id="ui-repo-summary">Topología DAG</span>
+      </div>
+    </div>
+
+    <div class="toolbar-section">
+      <!-- Selector de Vistas -->
+      <div class="view-switcher">
+        <button type="button" class="view-btn active" id="btn-view-graph" data-view="graph" title="Grafo de Commits">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zM8 0a8 8 0 100 16A8 8 0 008 0zm.5 4.75a.75.75 0 00-1.5 0v3.5c0 .414.336.75.75.75h2.5a.75.75 0 000-1.5H8.5V4.75z"/></svg>
+          <span id="label-view-graph">Grafo</span>
+        </button>
+        <button type="button" class="view-btn" id="btn-view-tree" data-view="tree" title="Árbol Jerárquico de Ramas">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/></svg>
+          <span id="label-view-tree">Árbol</span>
+        </button>
+        <button type="button" class="view-btn" id="btn-view-relations" data-view="relations" title="Diagrama de Relaciones y Comparación">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zm10 7.5a2.25 2.25 0 113 2.122v.378a.75.75 0 01-1.5 0v-.378a2.25 2.25 0 01-1.5-2.122zm-7.75-7.5a.75.75 0 100 1.5.75.75 0 000-1.5zm0 10.5a.75.75 0 100 1.5.75.75 0 000-1.5zm10-3a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg>
+          <span id="label-view-relations">Relaciones</span>
+        </button>
+      </div>
+
+      <!-- Buscador -->
+      <input type="text" id="search-input" class="gl-input search-input" placeholder="Buscar rama o commit...">
+
+      <!-- Selector de Aislamiento de Scope -->
+      <select id="scope-select" class="gl-select" title="Aislamiento de Scope">
+        <option value="" id="opt-all-branches">Todas las ramas (Global)</option>
+      </select>
+
+      <!-- Selector de Colaboradores -->
+      <select id="author-select" class="gl-select" title="Filtrar por Colaborador">
+        <option value="" id="opt-all-collaborators">Todos los colaboradores</option>
+      </select>
+
+      <!-- Switch Modo Verboso -->
+      <label class="gl-toggle-container" title="Incluir commits no convencionales y bodies completos">
+        <input type="checkbox" id="verbose-toggle">
+        <span id="label-verbose">Verboso</span>
+        <span id="verbose-badge" class="verbose-status-badge"></span>
+      </label>
+
+      <!-- Botón Imprimir / PDF -->
+      <button type="button" id="btn-print" class="gl-btn" title="Imprimir o Exportar PDF">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1.75C4 .784 4.784 0 5.75 0h4.5c.966 0 1.75.784 1.75 1.75v1.5H13a2 2 0 012 2v5a2 2 0 01-2 2h-1v2.25A1.75 1.75 0 0110.25 16h-4.5A1.75 1.75 0 014 14.25V12.25H3a2 2 0 01-2-2v-5a2 2 0 012-2h1v-1.5zM5.5 1.75v1.5h5v-1.5a.25.25 0 00-.25-.25h-4.5a.25.25 0 00-.25.25zm-2.5 3.5a.5.5 0 00-.5.5v5a.5.5 0 00.5.5h1v-1.25A1.75 1.75 0 015.75 8.25h4.5a1.75 1.75 0 011.75 1.75v1.25h1a.5.5 0 00.5-.5v-5a.5.5 0 00-.5-.5H3zm2.5 4.5a.25.25 0 00-.25.25v4.25c0 .138.112.25.25.25h4.5a.25.25 0 00.25-.25V9.75a.25.25 0 00-.25-.25h-4.5z"/></svg>
+        <span id="label-print">Imprimir</span>
+      </button>
+
+      <!-- Conmutador Tema -->
+      <button type="button" id="btn-theme" class="gl-btn" title="Cambiar tema claro/oscuro">🌙</button>
+
+      <!-- Conmutador Idioma -->
+      <button type="button" id="btn-lang" class="gl-btn" title="Cambiar idioma (ES/EN)">EN</button>
+    </div>
+  </header>
+
+  <!-- Banner de Scope Aislado -->
+  <div id="scope-banner">
+    <div id="scope-banner-text">
+      <strong id="label-scope-active">Aislamiento de Scope Activo:</strong> <span id="isolated-branch-name">main</span>
+    </div>
+    <button type="button" id="btn-clear-scope" class="scope-clear-btn">Restablecer aislamiento</button>
+  </div>
+
+  <!-- Contenedor Principal con las 3 Vistas -->
+  <main class="main-layout">
+    
+    <!-- Vista 1: Commit Graph SVG + Log Tabular -->
+    <div id="view-graph" class="view-container active">
+      <div class="graph-grid">
+        <svg id="graph-svg" class="graph-svg-col" width="160" height="600"></svg>
+        <div id="commits-table" class="commits-table-col"></div>
+      </div>
+    </div>
+
+    <!-- Vista 2: Branch Tree DOM -->
+    <div id="view-tree" class="view-container">
+      <div class="tree-header-info">
+        <div class="tree-title">
+          <span id="label-tree-title">Jerarquía de Ramas y Genealogía</span>
+        </div>
+        <div id="tree-summary-counters" class="branch-metrics"></div>
+      </div>
+      <div id="tree-root"></div>
+    </div>
+
+    <!-- Vista 3: Solo Relaciones de Ramas (DAG Puro & Bilateral) -->
+    <div id="view-relations" class="view-container">
+      <div class="bilateral-panel">
+        <div class="bilateral-header">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 2a.5.5 0 00-.5.5v2.793l-4.146-4.147a.5.5 0 00-.708 0l-4.5 4.5a.5.5 0 000 .708L4.793 10.5H2a.5.5 0 000 1h3.5a.5.5 0 00.5-.5V7.5a.5.5 0 00-1 0v2.793L1.354 6.646a.5.5 0 010-.708l4.146-4.146V4.5a.5.5 0 001 0V2.5a.5.5 0 00-.5-.5zM14 5.5a.5.5 0 00-.5-.5h-3.5a.5.5 0 00-.5.5V9a.5.5 0 001 0V6.207l3.646 3.647a.5.5 0 010 .708l-4.146 4.146V12.5a.5.5 0 00-1 0v2.5a.5.5 0 00.5.5h2.5a.5.5 0 000-1H9.207l4.147-4.146a.5.5 0 000-.708l-4.5-4.5a.5.5 0 00-.708 0L6.793 6.004a.5.5 0 10.707.707L10.5 3.707V5.5a.5.5 0 00.5 0z"/></svg>
+          <span id="label-bilateral-title">Comparación Bilateral de Ramas</span>
+        </div>
+        <div class="bilateral-selectors">
+          <div class="bilateral-selector-group">
+            <label id="label-bilateral-base" for="bilateral-base">Rama Base (Referencia):</label>
+            <select id="bilateral-base" class="gl-select"></select>
+          </div>
+          <div class="bilateral-selector-group">
+            <label id="label-bilateral-target" for="bilateral-target">Rama Evaluada (Objetivo):</label>
+            <select id="bilateral-target" class="gl-select"></select>
+          </div>
+        </div>
+        <div id="bilateral-result-box" class="bilateral-result"></div>
+      </div>
+
+      <!-- Lienzo SVG de Topología DAG de Ramas -->
+      <div class="relations-dag-canvas" id="relations-canvas">
+        <svg id="relations-svg" width="1160" height="500"></svg>
+      </div>
+    </div>
+
+    <!-- Panel Lateral Técnico Deslizable -->
+    <aside id="inspector-panel" class="inspector-panel">
+      <div class="inspector-header">
+        <h2 id="label-inspector-title">Detalle Técnico</h2>
+        <button type="button" id="btn-close-inspector" class="inspector-close-btn">&times;</button>
+      </div>
+      <div id="inspector-body" class="inspector-content"></div>
+    </aside>
+
+  </main>
+
+  <!-- Datos Topológicos Serializados Inyectados por el Compilador -->
+  <script id="gitdoc-data" type="application/json">
+    {"topology":{"branches":[],"baseBranch":"main"},"collaborators":{},"options":{}}
+  </script>
+
+  <!-- Motor Interactivo en Cliente (Zero-Dependencies, 100% Offline) -->
+  <script>
+    (function () {
+      'use strict';
+
+      // 1. Carga de datos incrustados
+      let rawData = {};
+      try {
+        const rawText = document.getElementById('gitdoc-data').textContent;
+        rawData = JSON.parse(rawText);
+      } catch (err) {
+        console.error('Error al cargar gitdoc-data:', err);
+      }
+
+      const topology = rawData.topology || { branches: [], baseBranch: 'main' };
+      const collaborators = rawData.collaborators || { global: [], branches: {} };
+      const mergeSummaries = rawData.mergeSummaries || [];
+      const i18nCatalogs = rawData.i18n || {};
+      const options = rawData.options || {};
+
+      let currentLang = options.langExplicit
+        ? (options.lang || 'es')
+        : ((typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('es')) ? 'es' : (options.lang || 'es'));
+      let isVerbose = Boolean(options.verbose);
+      let isolatedBranch = null;
+      let selectedAuthor = '';
+      let activeSearch = '';
+      let activeView = 'graph';
+      let selectedCommitHash = null;
+      const openBranchCommits = new Set();
+
+      // Diccionario i18n reactivo en cliente
+      const dict = {
+        es: {
+          title: "Gitdoc",
+          repoSummary: "Topología DAG",
+          viewGraph: "Grafo",
+          viewTree: "Árbol",
+          viewRelations: "Relaciones",
+          searchPlaceholder: "Buscar rama o commit...",
+          allBranches: "Todas las ramas (Global)",
+          allCollaborators: "Todos los colaboradores",
+          verbose: "Verboso",
+          print: "Imprimir",
+          statusBase: "base",
+          statusActive: "activa",
+          statusMerged: "fusionada",
+          statusDiverged: "divergente",
+          clearScope: "Restablecer aislamiento",
+          scopeActive: "Aislamiento de Scope Activo:",
+          bilateralTitle: "Comparación Bilateral de Ramas",
+          bilateralBase: "Rama Base (Referencia):",
+          bilateralTarget: "Rama Evaluada (Objetivo):",
+          inspectorTitle: "Detalle Técnico",
+          commitsCount: "commits",
+          ahead: "ahead",
+          behind: "behind",
+          common: "en común",
+          nonConventional: "no convencional",
+          mergeSummaryTitle: "Resumen de Fusión estilo Git",
+          totalCommits: "commits aportados",
+          authors: "Autores participantes",
+          hashRange: "Rango de hashes",
+          viewRemote: "Ver en repositorio remoto",
+          copyHash: "Copiar hash",
+          copied: "¡Copiado!",
+          noCommits: "No hay commits disponibles.",
+          treeTitle: "Jerarquía de Ramas y Genealogía",
+          isolate: "Aislar",
+          isolated: "Aislada",
+          commitsToggle: "Commits ▾",
+          moreCommits: "+{count} commits más...",
+          identicalBranches: "Ambas ramas son idénticas ({branch}). Divergencia: 0.",
+          noBranches: "No hay ramas que coincidan con el filtro actual.",
+          printHeaderTitle: "Gitdoc — Reporte Topológico y Análisis de Scope",
+          printHeaderMeta: "Generado con Gitdoc CLI",
+          branches: "ramas",
+          branch: "rama",
+          commitHash: "Hash del Commit",
+          author: "Autor",
+          date: "Fecha",
+          subject: "Asunto",
+          body: "Descripción completa (Body)",
+          branchesContaining: "Ramas que contienen este commit:",
+          aheadCommitsTitle: "Commits Propios (Ahead +{count} vs {base})",
+          behindCommitsTitle: "Commits de Rama Base (Behind -{count} en {parent})",
+          mergedCommitsTitle: "Commits Integrados / Fusionados ({count} en {target})",
+          allBranchCommitsTitle: "Todos los Commits ({count})",
+          verboseOn: "ON (bodies visibles)",
+          badgeAhead: "+ ahead",
+          badgeBehind: "- behind",
+          badgeMerged: "✔ merged",
+          parents: "Commits padre"
+        },
+        en: {
+          title: "Gitdoc",
+          repoSummary: "DAG Topology",
+          viewGraph: "Graph",
+          viewTree: "Tree",
+          viewRelations: "Relations",
+          searchPlaceholder: "Search branch or commit...",
+          allBranches: "All branches (Global)",
+          allCollaborators: "All collaborators",
+          verbose: "Verbose",
+          print: "Print",
+          statusBase: "base",
+          statusActive: "active",
+          statusMerged: "merged",
+          statusDiverged: "diverged",
+          clearScope: "Reset isolation",
+          scopeActive: "Active Scope Isolation:",
+          bilateralTitle: "Bilateral Branch Comparison",
+          bilateralBase: "Base Branch (Reference):",
+          bilateralTarget: "Target Branch (Evaluated):",
+          inspectorTitle: "Technical Details",
+          commitsCount: "commits",
+          ahead: "ahead",
+          behind: "behind",
+          common: "in common",
+          nonConventional: "non-conventional",
+          mergeSummaryTitle: "Git-Style Merge Summary",
+          totalCommits: "commits contributed",
+          authors: "Contributing authors",
+          hashRange: "Hash range",
+          viewRemote: "View in remote repository",
+          copyHash: "Copy hash",
+          copied: "Copied!",
+          noCommits: "No commits available.",
+          treeTitle: "Branch Hierarchy & Genealogy",
+          isolate: "Isolate",
+          isolated: "Isolated",
+          commitsToggle: "Commits ▾",
+          moreCommits: "+{count} more commits...",
+          identicalBranches: "Both branches are identical ({branch}). Divergence: 0.",
+          noBranches: "No branches match the current filter.",
+          printHeaderTitle: "Gitdoc — Topology Report & Scope Analysis",
+          printHeaderMeta: "Generated with Gitdoc CLI",
+          branches: "branches",
+          branch: "branch",
+          commitHash: "Commit Hash",
+          author: "Author",
+          date: "Date",
+          subject: "Subject",
+          body: "Full Description (Body)",
+          branchesContaining: "Branches containing this commit:",
+          aheadCommitsTitle: "Branch Commits (Ahead +{count} vs {base})",
+          behindCommitsTitle: "Base Branch Commits (Behind -{count} in {parent})",
+          mergedCommitsTitle: "Integrated / Merged Commits ({count} in {target})",
+          allBranchCommitsTitle: "All Commits ({count})",
+          verboseOn: "ON (bodies visible)",
+          badgeAhead: "+ ahead",
+          badgeBehind: "- behind",
+          badgeMerged: "✔ merged",
+          parents: "Parent commits"
+        }
+      };
+
+      function t(key, params) {
+        let str = (dict[currentLang] && dict[currentLang][key]) || (dict.es && dict.es[key]) || key;
+        if (params && typeof params === 'object') {
+          for (const [k, v] of Object.entries(params)) {
+            str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+          }
+        }
+        return str;
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      // 2. Extraer lista cronológica plana de commits para el grafo
+      const dagMap = new Map();
+      const allCommitsList = [];
+      const seenHashes = new Set();
+
+      (rawData.dagNodes || []).forEach(node => {
+        dagMap.set(node.hash, node);
+        if (!seenHashes.has(node.hash)) {
+          seenHashes.add(node.hash);
+          allCommitsList.push(node);
+        }
+      });
+
+      // Ordenar commits cronológicamente descendente
+      allCommitsList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      // Asignar carriles (lanes) deterministas por rama
+      const branchLanes = new Map();
+      const branchColors = [
+        'var(--gl-lane-0)',
+        'var(--gl-lane-1)',
+        'var(--gl-lane-2)',
+        'var(--gl-lane-3)',
+        'var(--gl-lane-4)',
+        'var(--gl-lane-5)',
+        'var(--gl-lane-6)',
+        'var(--gl-lane-7)'
+      ];
+
+      (topology.branches || []).forEach((b, idx) => {
+        branchLanes.set(b.name, idx % branchColors.length);
+      });
+
+      // DOM Elements
+      const btnViewGraph = document.getElementById('btn-view-graph');
+      const btnViewTree = document.getElementById('btn-view-tree');
+      const btnViewRelations = document.getElementById('btn-view-relations');
+      const viewGraph = document.getElementById('view-graph');
+      const viewTree = document.getElementById('view-tree');
+      const viewRelations = document.getElementById('view-relations');
+      const scopeSelect = document.getElementById('scope-select');
+      const authorSelect = document.getElementById('author-select');
+      const searchInput = document.getElementById('search-input');
+      const verboseToggle = document.getElementById('verbose-toggle');
+      const scopeBanner = document.getElementById('scope-banner');
+      const isolatedBranchName = document.getElementById('isolated-branch-name');
+      const btnClearScope = document.getElementById('btn-clear-scope');
+      const btnTheme = document.getElementById('btn-theme');
+      const btnLang = document.getElementById('btn-lang');
+      const btnPrint = document.getElementById('btn-print');
+      const inspectorPanel = document.getElementById('inspector-panel');
+      const inspectorBody = document.getElementById('inspector-body');
+      const btnCloseInspector = document.getElementById('btn-close-inspector');
+
+      // 3. Inicialización de controles UI
+      function initControls() {
+        verboseToggle.checked = isVerbose;
+
+        // Poblar select de ramas
+        (topology.branches || []).forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.name;
+          opt.textContent = `${b.name} (${b.status})`;
+          scopeSelect.appendChild(opt);
+        });
+
+        // Poblar select de autores
+        const authors = new Set();
+        allCommitsList.forEach(c => {
+          if (c.author) authors.add(c.author);
+        });
+        Array.from(authors).sort().forEach(author => {
+          const opt = document.createElement('option');
+          opt.value = author;
+          opt.textContent = author;
+          authorSelect.appendChild(opt);
+        });
+
+        // Poblar select bilateral
+        const bBase = document.getElementById('bilateral-base');
+        const bTarget = document.getElementById('bilateral-target');
+        (topology.branches || []).forEach(b => {
+          const opt1 = document.createElement('option');
+          opt1.value = b.name;
+          opt1.textContent = b.name;
+          if (b.isBase || b.name === topology.baseBranch) opt1.selected = true;
+          bBase.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = b.name;
+          opt2.textContent = b.name;
+          bTarget.appendChild(opt2);
+        });
+
+        if (bTarget.options.length > 1) {
+          bTarget.selectedIndex = 1;
+        }
+
+        bBase.addEventListener('change', renderBilateralComparison);
+        bTarget.addEventListener('change', renderBilateralComparison);
+
+        updateLabels();
+      }
+
+      function updateLabels() {
+        document.title = t('title');
+        document.getElementById('ui-brand-title').textContent = t('title');
+        document.getElementById('ui-repo-summary').textContent = t('repoSummary');
+        document.getElementById('label-view-graph').textContent = t('viewGraph');
+        document.getElementById('label-view-tree').textContent = t('viewTree');
+        document.getElementById('label-view-relations').textContent = t('viewRelations');
+        searchInput.placeholder = t('searchPlaceholder');
+        const optBranches = document.getElementById('opt-all-branches');
+        if (optBranches) optBranches.textContent = t('allBranches');
+        const optCollabs = document.getElementById('opt-all-collaborators');
+        if (optCollabs) optCollabs.textContent = t('allCollaborators');
+        document.getElementById('label-verbose').textContent = t('verbose');
+        document.getElementById('label-print').textContent = t('print');
+        btnClearScope.textContent = t('clearScope');
+        const lblScope = document.getElementById('label-scope-active');
+        if (lblScope) lblScope.textContent = t('scopeActive');
+        document.getElementById('label-tree-title').textContent = t('treeTitle');
+        document.getElementById('label-bilateral-title').textContent = t('bilateralTitle');
+        document.getElementById('label-bilateral-base').textContent = t('bilateralBase');
+        document.getElementById('label-bilateral-target').textContent = t('bilateralTarget');
+        document.getElementById('label-inspector-title').textContent = t('inspectorTitle');
+        const lblPrintTitle = document.getElementById('print-header-title');
+        if (lblPrintTitle) lblPrintTitle.textContent = t('printHeaderTitle');
+        const lblPrintMeta = document.getElementById('label-print-header-meta');
+        if (lblPrintMeta) lblPrintMeta.textContent = t('printHeaderMeta');
+        btnLang.textContent = currentLang === 'es' ? 'EN' : 'ES';
+        updateVerboseBadge();
+      }
+
+      function updateVerboseBadge() {
+        const badge = document.getElementById('verbose-badge');
+        if (badge) {
+          if (isVerbose) {
+            badge.textContent = t('verboseOn');
+            badge.style.display = 'inline-block';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+      }
+
+      // 4. Filtrado de Commits y Ramas
+      function getIsolatedBranchesSet() {
+        if (!isolatedBranch) return null;
+        const branchObj = (topology.branches || []).find(b => b.name === isolatedBranch);
+        if (!branchObj) return null;
+
+        const set = new Set([branchObj.name]);
+        if (branchObj.parentBranch && branchObj.parentBranch !== branchObj.name) {
+          set.add(branchObj.parentBranch);
+        }
+        if (branchObj.mergedInto && branchObj.mergedInto !== branchObj.name) {
+          set.add(branchObj.mergedInto);
+        }
+        (branchObj.children || []).forEach(c => set.add(c));
+        (branchObj.mergedChildren || []).forEach(c => set.add(c));
+        return set;
+      }
+
+      function getIsolatedCommitHashes() {
+        if (!isolatedBranch) return null;
+        const branchObj = (topology.branches || []).find(b => b.name === isolatedBranch);
+        if (!branchObj) return null;
+
+        const hashes = new Set();
+        (branchObj.commits || []).forEach(c => hashes.add(c.hash));
+        (branchObj.mergedCommits || []).forEach(c => hashes.add(c.hash));
+        (branchObj.unmergedCommits || []).forEach(c => hashes.add(c.hash));
+
+        if (branchObj.forkPoint) hashes.add(branchObj.forkPoint);
+        if (branchObj.mergeCommit) hashes.add(branchObj.mergeCommit);
+
+        const childNames = (branchObj.children || []).concat(branchObj.mergedChildren || []);
+        childNames.forEach(childName => {
+          const childObj = (topology.branches || []).find(b => b.name === childName);
+          if (childObj) {
+            (childObj.commits || []).forEach(c => hashes.add(c.hash));
+            (childObj.mergedCommits || []).forEach(c => hashes.add(c.hash));
+            if (childObj.forkPoint) hashes.add(childObj.forkPoint);
+            if (childObj.mergeCommit) hashes.add(childObj.mergeCommit);
+          }
+        });
+
+        allCommitsList.forEach(c => {
+          if (c.branches && c.branches.includes(isolatedBranch)) {
+            hashes.add(c.hash);
+          }
+        });
+
+        return hashes;
+      }
+
+      function isCommitVisible(c) {
+        if (!isVerbose && !c.isRelevant) {
+          return false;
+        }
+        if (isolatedBranch) {
+          const isoHashes = getIsolatedCommitHashes();
+          if (isoHashes && !isoHashes.has(c.hash)) {
+            return false;
+          }
+        }
+        if (selectedAuthor) {
+          if ((c.author || '').toLowerCase() !== selectedAuthor.toLowerCase()) return false;
+        }
+        if (activeSearch) {
+          const q = activeSearch.toLowerCase();
+          const matchHash = c.hash.toLowerCase().includes(q);
+          const matchSubject = (c.subject || '').toLowerCase().includes(q);
+          const matchAuthor = (c.author || '').toLowerCase().includes(q);
+          const matchBranch = (c.branches || []).some(b => b.toLowerCase().includes(q));
+          if (!matchHash && !matchSubject && !matchAuthor && !matchBranch) return false;
+        }
+        return true;
+      }
+
+      // 5. Renderizado de Vista 1: Commit Graph SVG + Filas de Commit
+      function renderCommitGraph() {
+        const visibleCommits = allCommitsList.filter(isCommitVisible);
+        const commitsContainer = document.getElementById('commits-table');
+        const svgContainer = document.getElementById('graph-svg');
+        commitsContainer.innerHTML = '';
+        svgContainer.innerHTML = '';
+
+        if (visibleCommits.length === 0) {
+          commitsContainer.innerHTML = `<div style="padding: 20px; color: var(--gl-text-muted);">${t('noCommits')}</div>`;
+          return;
+        }
+
+        // 1. Construir e insertar filas de commit en el DOM
+        visibleCommits.forEach((c) => {
+          const row = document.createElement('div');
+          row.className = 'commit-row';
+          row.dataset.hash = c.hash;
+
+          if (c.hash === selectedCommitHash) {
+            row.classList.add('selected');
+          }
+          if (selectedAuthor && c.author && c.author.toLowerCase() !== selectedAuthor.toLowerCase()) {
+            row.classList.add('dimmed');
+          } else if (selectedAuthor && c.author && c.author.toLowerCase() === selectedAuthor.toLowerCase()) {
+            row.classList.add('highlighted');
+          }
+          if (!c.isConventional) {
+            row.classList.add('non-conventional');
+          }
+
+          const shortHash = c.hash.substring(0, 7);
+          const authorInitials = (c.author || '?').split(' ').map(w => w[0]).join('').substring(0, 2);
+
+          let typeBadgeHtml = '';
+          if (c.type) {
+            typeBadgeHtml = `<span class="gl-badge gl-badge-type gl-badge-type-${c.type}">${c.type}</span>`;
+          } else if (isVerbose) {
+            typeBadgeHtml = `<span class="gl-badge" style="color:var(--gl-text-subtle);font-size:10px;">non-conventional</span>`;
+          }
+
+          const primaryBranch = (c.branches && c.branches[0]) || topology.baseBranch || 'main';
+          const branchBadgeHtml = primaryBranch ? `<span class="gl-badge gl-badge-branch">${primaryBranch}</span>` : '';
+
+          row.innerHTML = `
+            <div class="commit-row-main">
+              <span class="commit-hash" title="${t('copyHash')}">${shortHash}</span>
+              <div class="commit-badges">
+                ${branchBadgeHtml}
+                ${typeBadgeHtml}
+              </div>
+              <span class="commit-message" title="${escapeHtml(c.subject || '')}">${escapeHtml(c.subject || '')}</span>
+              <span class="commit-author">
+                <span class="author-avatar">${authorInitials}</span>
+                ${escapeHtml(c.author || '')}
+              </span>
+              <span class="commit-date">${c.date ? new Date(c.date).toLocaleDateString() : ''}</span>
+            </div>
+            ${(isVerbose && c.body) ? `<div class="commit-row-body">${escapeHtml(c.body)}</div>` : ''}
+          `;
+
+          row.addEventListener('click', () => {
+            selectCommit(c.hash);
+          });
+
+          commitsContainer.appendChild(row);
+        });
+
+        // 2. Medir centros verticales exactos de cada fila tras inserción
+        const hashToY = new Map();
+        const rowElements = commitsContainer.querySelectorAll('.commit-row');
+        rowElements.forEach((rowElem) => {
+          const hash = rowElem.dataset.hash;
+          const mainLine = rowElem.querySelector('.commit-row-main');
+          const rowCenter = rowElem.offsetTop + (mainLine ? mainLine.offsetHeight / 2 : rowElem.offsetHeight / 2);
+          hashToY.set(hash, rowCenter);
+        });
+
+        const laneWidth = 20;
+        const maxLane = (topology.branches || []).length || 1;
+        const svgWidth = Math.max(120, (maxLane + 1) * laneWidth + 20);
+        const svgHeight = commitsContainer.scrollHeight || (visibleCommits.length * 38);
+
+        svgContainer.setAttribute('width', svgWidth);
+        svgContainer.setAttribute('height', svgHeight);
+
+        // 3. Generar líneas y nodos SVG alineados
+        let svgContent = '';
+        visibleCommits.forEach((c) => {
+          const y = hashToY.get(c.hash) ?? 19;
+          const primaryBranch = (c.branches && c.branches[0]) || topology.baseBranch || 'main';
+          const laneIdx = branchLanes.get(primaryBranch) || 0;
+          const x = 20 + laneIdx * laneWidth;
+          const color = branchColors[laneIdx % branchColors.length];
+
+          // Dibujar conexiones hacia commits padres
+          (c.parents || []).forEach(parentHash => {
+            if (hashToY.has(parentHash)) {
+              const py = hashToY.get(parentHash);
+              const parentNode = dagMap.get(parentHash);
+              const pBranch = (parentNode && parentNode.branches && parentNode.branches[0]) || primaryBranch;
+              const pLane = branchLanes.get(pBranch) || 0;
+              const px = 20 + pLane * laneWidth;
+
+              if (x === px) {
+                svgContent += `<line x1="${x}" y1="${y}" x2="${px}" y2="${py}" stroke="${color}" stroke-width="2" opacity="0.8"/>`;
+              } else {
+                const midY = (y + py) / 2;
+                svgContent += `<path d="M ${x} ${y} C ${x} ${midY}, ${px} ${midY}, ${px} ${py}" fill="none" stroke="${color}" stroke-width="2" opacity="0.8"/>`;
+              }
+            }
+          });
+
+          // Dibujar nodo circular
+          if (c.isMerge) {
+            svgContent += `
+              <circle cx="${x}" cy="${y}" r="6" fill="var(--gl-bg)" stroke="${color}" stroke-width="2"/>
+              <circle cx="${x}" cy="${y}" r="3" fill="${color}"/>
+            `;
+          } else {
+            svgContent += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--gl-bg)" stroke="${color}" stroke-width="2.5"/>`;
+          }
+        });
+
+        svgContainer.innerHTML = svgContent;
+      }
+
+      // 6. Renderizado de Vista 2: Branch Tree DOM
+      function renderBranchTree() {
+        const treeRoot = document.getElementById('tree-root');
+        const counters = document.getElementById('tree-summary-counters');
+        treeRoot.innerHTML = '';
+
+        const activeIso = getIsolatedBranchesSet();
+        const branchesToRender = (topology.branches || []).filter(b => {
+          if (activeIso && !activeIso.has(b.name)) return false;
+          return true;
+        });
+
+        // Contadores
+        const total = branchesToRender.length;
+        const active = branchesToRender.filter(b => b.status === 'active').length;
+        const merged = branchesToRender.filter(b => b.status === 'merged').length;
+        const diverged = branchesToRender.filter(b => b.status === 'diverged').length;
+        const branchWord = total === 1 ? t('branch') : t('branches');
+        counters.innerHTML = `
+          <span>${total} ${branchWord} (${active} ${t('statusActive')}, ${merged} ${t('statusMerged')}, ${diverged} ${t('statusDiverged')})</span>
+        `;
+
+        branchesToRender.forEach(b => {
+          const node = document.createElement('div');
+          node.className = 'tree-node';
+
+          const card = document.createElement('div');
+          card.className = `branch-card ${b.isBase ? 'is-base' : ''} ${b.name === isolatedBranch ? 'is-isolated' : ''}`;
+          if (b.name === isolatedBranch) {
+            card.style.borderColor = 'var(--gl-accent)';
+            card.style.boxShadow = '0 0 0 1px var(--gl-accent)';
+          }
+
+          let statusClass = 'status-active';
+          if (b.status === 'merged') statusClass = 'status-merged';
+          if (b.status === 'diverged') statusClass = 'status-diverged';
+          if (b.isBase) statusClass = 'status-base';
+          const statusText = t('status' + b.status.charAt(0).toUpperCase() + b.status.slice(1)) || b.status;
+
+          // Resumen de merge si está fusionada
+          let mergeSummaryHtml = '';
+          const summary = mergeSummaries.find(s => s.branch === b.name);
+          if (b.status === 'merged' && summary) {
+            mergeSummaryHtml = `
+              <div class="merge-summary-banner">
+                <span class="merge-summary-title">↳ ${t('mergeSummaryTitle')} (${summary.title})</span>
+                <span>${summary.totalCommits} ${t('totalCommits')}</span>
+                <span>${Object.entries(summary.typesSummary || {}).map(([k,v]) => `${k}:${v}`).join(', ')}</span>
+              </div>
+            `;
+          }
+
+          card.innerHTML = `
+            <div class="branch-card-header">
+              <div class="branch-name-wrap">
+                <span class="branch-name">${b.name}</span>
+                <span class="status-badge ${statusClass}">[${statusText}]</span>
+                ${b.parentBranch ? `<span style="color:var(--gl-text-muted);font-size:11px;">(de ${b.parentBranch})</span>` : ''}
+              </div>
+              <div class="branch-metrics">
+                <span>${b.aheadCount || 0} ${t('ahead')} / ${b.behindCount || 0} ${t('behind')}</span>
+                <span>•</span>
+                <span>${(b.commits || []).length} ${t('commitsCount')}</span>
+                <div class="branch-actions">
+                  <button type="button" class="gl-btn btn-isolate-branch" data-branch="${b.name}">
+                    ${isolatedBranch === b.name ? t('clearScope') : t('isolate')}
+                  </button>
+                  <button type="button" class="gl-btn btn-toggle-commits" data-branch="${b.name}">${t('commitsToggle')}</button>
+                </div>
+              </div>
+            </div>
+            ${mergeSummaryHtml}
+            <div class="tree-commit-list" id="tree-commits-${b.name.replace(/[^a-zA-Z0-9]/g, '_')}"></div>
+          `;
+
+          // Botón aislar rama
+          card.querySelector('.btn-isolate-branch').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isolatedBranch === b.name) {
+              setScopeIsolation(null);
+            } else {
+              setScopeIsolation(b.name);
+            }
+          });
+
+          // Botón desplegar commits
+          const commitList = card.querySelector('.tree-commit-list');
+          card.querySelector('.btn-toggle-commits').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (openBranchCommits.has(b.name)) {
+              openBranchCommits.delete(b.name);
+              commitList.classList.remove('open');
+            } else {
+              openBranchCommits.add(b.name);
+              commitList.classList.add('open');
+              populateTreeCommits(b, commitList);
+            }
+          });
+
+          if (openBranchCommits.has(b.name)) {
+            commitList.classList.add('open');
+            populateTreeCommits(b, commitList);
+          }
+
+          node.appendChild(card);
+          treeRoot.appendChild(node);
+        });
+      }
+
+      function populateTreeCommits(branch, container) {
+        container.innerHTML = '';
+
+        const unmerged = (branch.unmergedCommits || []).filter(isCommitVisible);
+        const behind = (branch.behindCommits || []).filter(isCommitVisible);
+        const merged = (branch.mergedCommits || []).filter(isCommitVisible);
+        const allCommits = (branch.commits || []).filter(isCommitVisible);
+
+        const hasCategorized = (unmerged.length > 0 || behind.length > 0 || (merged.length > 0 && branch.status === 'merged'));
+
+        if (!hasCategorized && allCommits.length === 0) {
+          container.innerHTML = `<div style="color:var(--gl-text-muted);padding:8px;">${t('noCommits')}</div>`;
+          return;
+        }
+
+        function createCommitItem(c, badgeText, badgeClass) {
+          const item = document.createElement('div');
+          item.className = `tree-commit-item ${badgeClass || ''}`;
+
+          let typeBadge = '';
+          if (c.type) {
+            typeBadge = `<span class="gl-badge gl-badge-type gl-badge-type-${c.type}">${c.type}</span>`;
+          } else if (isVerbose) {
+            typeBadge = `<span class="gl-badge" style="color:var(--gl-text-subtle);font-size:10px;">non-conventional</span>`;
+          }
+
+          const badgeHtml = badgeText ? `<span class="tree-diff-badge ${badgeClass}">${badgeText}</span>` : '';
+          const dateStr = c.date ? new Date(c.date).toLocaleDateString() : '';
+
+          item.innerHTML = `
+            <div class="tree-commit-row">
+              ${badgeHtml}
+              <span class="commit-hash" title="${t('copyHash')}">${c.hash.substring(0, 7)}</span>
+              ${typeBadge}
+              <span class="tree-commit-subject" title="${escapeHtml(c.subject || '')}">${escapeHtml(c.subject || '')}</span>
+              <span class="tree-commit-author">${escapeHtml(c.author || '')}</span>
+              <span style="color:var(--gl-text-muted);font-size:11px;flex-shrink:0;">${dateStr}</span>
+            </div>
+            ${(isVerbose && c.body) ? `<div class="tree-commit-body">${escapeHtml(c.body)}</div>` : ''}
+          `;
+
+          item.addEventListener('click', () => {
+            selectCommit(c.hash);
+          });
+          return item;
+        }
+
+        if (hasCategorized && !branch.isBase) {
+          // 1. Commits Propios / Ahead (+)
+          if (unmerged.length > 0) {
+            const sec = document.createElement('div');
+            sec.className = 'tree-commit-section';
+            sec.innerHTML = `<div class="tree-commit-section-header ahead">➕ ${t('aheadCommitsTitle', { count: unmerged.length, base: branch.parentBranch || 'base' })}</div>`;
+            unmerged.slice(0, 40).forEach(c => sec.appendChild(createCommitItem(c, t('badgeAhead'), 'diff-ahead')));
+            if (unmerged.length > 40) {
+              const more = document.createElement('div');
+              more.className = 'tree-more-commits';
+              more.textContent = t('moreCommits', { count: unmerged.length - 40 });
+              sec.appendChild(more);
+            }
+            container.appendChild(sec);
+          }
+
+          // 2. Commits Detrás de Rama Base / Behind (-)
+          if (behind.length > 0) {
+            const sec = document.createElement('div');
+            sec.className = 'tree-commit-section';
+            sec.innerHTML = `<div class="tree-commit-section-header behind">➖ ${t('behindCommitsTitle', { count: behind.length, parent: branch.parentBranch || 'base' })}</div>`;
+            behind.slice(0, 40).forEach(c => sec.appendChild(createCommitItem(c, t('badgeBehind'), 'diff-behind')));
+            if (behind.length > 40) {
+              const more = document.createElement('div');
+              more.className = 'tree-more-commits';
+              more.textContent = t('moreCommits', { count: behind.length - 40 });
+              sec.appendChild(more);
+            }
+            container.appendChild(sec);
+          }
+
+          // 3. Commits Integrados / Fusionados (✔)
+          if (merged.length > 0 && branch.status === 'merged') {
+            const sec = document.createElement('div');
+            sec.className = 'tree-commit-section';
+            sec.innerHTML = `<div class="tree-commit-section-header merged">✔ ${t('mergedCommitsTitle', { count: merged.length, target: branch.mergedInto || branch.parentBranch || 'base' })}</div>`;
+            merged.slice(0, 40).forEach(c => sec.appendChild(createCommitItem(c, t('badgeMerged'), 'diff-merged')));
+            if (merged.length > 40) {
+              const more = document.createElement('div');
+              more.className = 'tree-more-commits';
+              more.textContent = t('moreCommits', { count: merged.length - 40 });
+              sec.appendChild(more);
+            }
+            container.appendChild(sec);
+          }
+        } else {
+          // Rama base o commits generales
+          const sec = document.createElement('div');
+          sec.className = 'tree-commit-section';
+          if (!branch.isBase) {
+            sec.innerHTML = `<div class="tree-commit-section-header">${t('allBranchCommitsTitle', { count: allCommits.length })}</div>`;
+          }
+          allCommits.slice(0, 50).forEach(c => sec.appendChild(createCommitItem(c, '', '')));
+          if (allCommits.length > 50) {
+            const more = document.createElement('div');
+            more.className = 'tree-more-commits';
+            more.textContent = t('moreCommits', { count: allCommits.length - 50 });
+            sec.appendChild(more);
+          }
+          container.appendChild(sec);
+        }
+      }
+
+      // 7. Renderizado de Vista 3: Solo Relaciones de Ramas y Comparación Bilateral
+      function renderRelationsView() {
+        renderBilateralComparison();
+        renderRelationsDag();
+      }
+
+      function renderBilateralComparison() {
+        const baseName = document.getElementById('bilateral-base').value;
+        const targetName = document.getElementById('bilateral-target').value;
+        const resultBox = document.getElementById('bilateral-result-box');
+
+        if (!baseName || !targetName) return;
+
+        const baseBranch = (topology.branches || []).find(b => b.name === baseName);
+        const targetBranch = (topology.branches || []).find(b => b.name === targetName);
+
+        if (!baseBranch || !targetBranch) return;
+
+        if (baseName === targetName) {
+          resultBox.innerHTML = `<div><em>${t('identicalBranches', { branch: baseName })}</em></div>`;
+          return;
+        }
+
+        // Buscar resumen de merge si existe
+        const summary = mergeSummaries.find(s => (s.branch === targetName && s.target === baseName) || (s.branch === baseName && s.target === targetName));
+        const statusKey = 'status' + targetBranch.status.charAt(0).toUpperCase() + targetBranch.status.slice(1);
+        const targetStatus = t(statusKey) || targetBranch.status;
+
+        resultBox.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong>${baseName} ⟷ ${targetName}</strong>
+            <span class="gl-badge">[${targetStatus}]</span>
+          </div>
+          <div style="font-size:12px;color:var(--gl-text-muted);margin-top:4px;">
+            <span>${t('ahead')}: <strong>${targetBranch.aheadCount || 0}</strong></span> • 
+            <span>${t('behind')}: <strong>${targetBranch.behindCount || 0}</strong></span> • 
+            <span>Fork Point: <code>${targetBranch.forkPoint ? targetBranch.forkPoint.substring(0, 7) : 'root'}</code></span>
+          </div>
+          ${summary ? `
+            <div class="merge-card" style="margin-top:6px;">
+              <div class="merge-card-title">${summary.title}</div>
+              <div>${summary.totalCommits} ${t('totalCommits')} • ${t('authors')}: ${summary.contributors.join(', ')}</div>
+            </div>
+          ` : ''}
+        `;
+      }
+
+      function renderRelationsDag() {
+        const svg = document.getElementById('relations-svg');
+        const activeIso = getIsolatedBranchesSet();
+        const branches = (topology.branches || []).filter(b => !activeIso || activeIso.has(b.name));
+        if (branches.length === 0) {
+          svg.innerHTML = `<text x="40" y="40" fill="var(--gl-text-muted)">${t('noBranches')}</text>`;
+          return;
+        }
+
+        const width = 1100;
+        const height = Math.max(260, branches.length * 60 + 40);
+        svg.setAttribute('height', height);
+
+        let svgHtml = '';
+        const nodePos = new Map();
+        const startX = 60;
+        const levelWidth = 240;
+
+        // Asignar columnas según nivel jerárquico
+        branches.forEach((b, idx) => {
+          let col = 1;
+          if (b.isBase || b.name === topology.baseBranch) col = 0;
+          else if (b.parentBranch && b.parentBranch !== topology.baseBranch) col = 2;
+          const x = startX + col * levelWidth;
+          const y = 50 + idx * 55;
+          nodePos.set(b.name, { x, y });
+        });
+
+        // Aristas de conexión
+        branches.forEach(b => {
+          const from = nodePos.get(b.name);
+          if (!from) return;
+          if (b.parentBranch && nodePos.has(b.parentBranch)) {
+            const to = nodePos.get(b.parentBranch);
+            svgHtml += `
+              <path d="M ${to.x + 150} ${to.y} C ${to.x + 190} ${to.y}, ${from.x - 40} ${from.y}, ${from.x} ${from.y}" 
+                    fill="none" stroke="var(--gl-border-light)" stroke-width="2" stroke-dasharray="4,4"/>
+            `;
+          }
+          if (b.mergedInto && nodePos.has(b.mergedInto)) {
+            const to = nodePos.get(b.mergedInto);
+            svgHtml += `
+              <path d="M ${from.x + 150} ${from.y} C ${from.x + 190} ${from.y}, ${to.x + 190} ${to.y}, ${to.x + 150} ${to.y}" 
+                    fill="none" stroke="var(--gl-status-merged)" stroke-width="2"/>
+            `;
+          }
+        });
+
+        // Nodos de rama
+        branches.forEach(b => {
+          const pos = nodePos.get(b.name);
+          if (!pos) return;
+          let strokeColor = 'var(--gl-border)';
+          if (b.isBase) strokeColor = 'var(--gl-status-base)';
+          else if (b.status === 'merged') strokeColor = 'var(--gl-status-merged)';
+          else if (b.status === 'diverged') strokeColor = 'var(--gl-status-diverged)';
+
+          const isIsolated = isolatedBranch === b.name;
+          const rectFill = isIsolated ? 'var(--gl-panel-bg)' : 'var(--gl-sub-bg)';
+          const rectStroke = isIsolated ? 'var(--gl-accent)' : strokeColor;
+          const statusKey = 'status' + b.status.charAt(0).toUpperCase() + b.status.slice(1);
+          const statusText = t(statusKey) || b.status;
+
+          svgHtml += `
+            <g transform="translate(${pos.x}, ${pos.y - 20})" style="cursor:pointer;" onclick="window.gitdocSelectBranch('${b.name}')">
+              <rect width="150" height="40" rx="6" fill="${rectFill}" stroke="${rectStroke}" stroke-width="${isIsolated ? 2.5 : 1.5}"/>
+              <text x="10" y="18" fill="var(--gl-text)" font-family="var(--gl-font-mono)" font-size="11" font-weight="600">${b.name.length > 17 ? b.name.substring(0, 15) + '…' : b.name}</text>
+              <text x="10" y="32" fill="var(--gl-text-muted)" font-size="10">[${statusText}] ${b.aheadCount || 0}↑ ${b.behindCount || 0}↓</text>
+            </g>
+          `;
+        });
+
+        svg.innerHTML = svgHtml;
+      }
+
+      window.gitdocSelectBranch = function (branchName) {
+        if (isolatedBranch === branchName) {
+          setScopeIsolation(null);
+        } else {
+          setScopeIsolation(branchName);
+        }
+      };
+
+      // 8. Panel de Inspección Técnica
+      function selectCommit(hash) {
+        selectedCommitHash = hash;
+        const node = dagMap.get(hash);
+        if (!node) return;
+
+        inspectorBody.innerHTML = '';
+        inspectorPanel.classList.add('open');
+
+        const shortHash = node.hash.substring(0, 7);
+        const isoDate = node.date ? new Date(node.date).toISOString() : '';
+
+        let remoteLinkHtml = '';
+        if (options.remoteUrl) {
+          const url = `${options.remoteUrl.replace(/\/$/, '')}/commit/${node.hash}`;
+          remoteLinkHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--gl-accent);text-decoration:none;font-size:12px;">🔗 ${t('viewRemote')}</a>`;
+        }
+
+        // Si es merge commit, buscar resumen de merge
+        let mergeDetailsHtml = '';
+        if (node.isMerge) {
+          const mSummary = mergeSummaries.find(s => s.hashRange && s.hashRange.includes(shortHash));
+          mergeDetailsHtml = `
+            <div class="merge-card">
+              <div class="merge-card-title">🔀 ${t('mergeSummaryTitle')}</div>
+              <div>${t('parents')}: ${node.parents.map(p => `<code>${p.substring(0,7)}</code>`).join(' + ')}</div>
+            </div>
+          `;
+        }
+
+        inspectorBody.innerHTML = `
+          <div class="inspector-prop">
+            <span class="inspector-label">${t('commitHash')}</span>
+            <div class="inspector-hash-box">
+              <span>${node.hash}</span>
+              <button type="button" class="gl-btn" id="btn-copy-hash" style="padding:2px 6px;font-size:10px;">${t('copyHash')}</button>
+            </div>
+          </div>
+
+          <div class="inspector-prop">
+            <span class="inspector-label">${t('author')}</span>
+            <div class="inspector-value"><strong>${node.author || 'Desconocido'}</strong> &lt;${node.email || ''}&gt;</div>
+          </div>
+
+          <div class="inspector-prop">
+            <span class="inspector-label">${t('date')}:</span>
+            <div class="inspector-value">${isoDate}</div>
+          </div>
+
+          <div class="inspector-prop">
+            <span class="inspector-label">Conventional Commit:</span>
+            <div class="inspector-value">
+              ${node.type ? `<span class="gl-badge gl-badge-type gl-badge-type-${node.type}">${node.type}</span>` : `<span class="gl-badge">${t('nonConventional')}</span>`}
+              ${node.scope ? `<span class="gl-badge">(${node.scope})</span>` : ''}
+            </div>
+          </div>
+
+          <div class="inspector-prop">
+            <span class="inspector-label">${t('subject')}:</span>
+            <div class="inspector-value" style="font-weight:600;">${node.subject || ''}</div>
+          </div>
+
+          ${node.body ? `
+            <div class="inspector-prop">
+              <span class="inspector-label">${t('body')}:</span>
+              <div class="inspector-body-box">${node.body}</div>
+            </div>
+          ` : ''}
+
+          <div class="inspector-prop">
+            <span class="inspector-label">${t('branchesContaining')}</span>
+            <div class="inspector-value">${(node.branches || []).map(b => `<span class="gl-badge gl-badge-branch">${b}</span>`).join(' ') || '-'}</div>
+          </div>
+
+          ${mergeDetailsHtml}
+          ${remoteLinkHtml}
+        `;
+
+        document.getElementById('btn-copy-hash')?.addEventListener('click', () => {
+          navigator.clipboard.writeText(node.hash).then(() => {
+            const btn = document.getElementById('btn-copy-hash');
+            btn.textContent = t('copied');
+            setTimeout(() => { btn.textContent = t('copyHash'); }, 1500);
+          });
+        });
+
+        // Refrescar filas activas en el grafo
+        document.querySelectorAll('.commit-row').forEach(r => {
+          if (r.dataset.hash === hash) r.classList.add('selected');
+          else r.classList.remove('selected');
+        });
+      }
+
+      // 9. Aislamiento de Scope
+      function setScopeIsolation(branchName) {
+        isolatedBranch = branchName || null;
+        scopeSelect.value = branchName || '';
+
+        if (branchName) {
+          isolatedBranchName.textContent = branchName;
+          scopeBanner.classList.add('active');
+
+          const bObj = (topology.branches || []).find(b => b.name === branchName);
+          if (bObj) {
+            const bTarget = document.getElementById('bilateral-target');
+            const bBase = document.getElementById('bilateral-base');
+            if (bTarget) bTarget.value = branchName;
+            if (bBase && bObj.parentBranch) bBase.value = bObj.parentBranch;
+          }
+        } else {
+          scopeBanner.classList.remove('active');
+        }
+
+        renderCommitGraph();
+        renderBranchTree();
+        renderRelationsView();
+      }
+
+      // 10. Listeners y Eventos
+      btnViewGraph.addEventListener('click', () => switchView('graph'));
+      btnViewTree.addEventListener('click', () => switchView('tree'));
+      btnViewRelations.addEventListener('click', () => switchView('relations'));
+
+      function switchView(viewName) {
+        activeView = viewName;
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
+
+        if (viewName === 'graph') {
+          btnViewGraph.classList.add('active');
+          viewGraph.classList.add('active');
+          renderCommitGraph();
+        } else if (viewName === 'tree') {
+          btnViewTree.classList.add('active');
+          viewTree.classList.add('active');
+          renderBranchTree();
+        } else {
+          btnViewRelations.classList.add('active');
+          viewRelations.classList.add('active');
+          renderRelationsView();
+        }
+      }
+
+      scopeSelect.addEventListener('change', (e) => {
+        setScopeIsolation(e.target.value || null);
+      });
+
+      btnClearScope.addEventListener('click', () => {
+        setScopeIsolation(null);
+      });
+
+      authorSelect.addEventListener('change', (e) => {
+        selectedAuthor = e.target.value;
+        renderCommitGraph();
+      });
+
+      searchInput.addEventListener('input', (e) => {
+        activeSearch = e.target.value;
+        renderCommitGraph();
+      });
+
+      verboseToggle.addEventListener('change', (e) => {
+        isVerbose = e.target.checked;
+        updateVerboseBadge();
+        renderCommitGraph();
+        renderBranchTree();
+      });
+
+      btnCloseInspector.addEventListener('click', () => {
+        inspectorPanel.classList.remove('open');
+      });
+
+      btnTheme.addEventListener('click', () => {
+        const root = document.documentElement;
+        const current = root.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        btnTheme.textContent = next === 'dark' ? '🌙' : '☀️';
+      });
+
+      btnLang.addEventListener('click', () => {
+        currentLang = currentLang === 'es' ? 'en' : 'es';
+        updateLabels();
+        renderCommitGraph();
+        renderBranchTree();
+        renderRelationsView();
+      });
+
+      btnPrint.addEventListener('click', () => {
+        document.getElementById('print-date').textContent = new Date().toLocaleString();
+        window.print();
+      });
+
+      // Inicialización
+      initControls();
+      renderCommitGraph();
+
+    })();
+  </script>
+</body>
+</html>

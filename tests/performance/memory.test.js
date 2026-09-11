@@ -11,7 +11,10 @@ mock.module('../../src/git.js', {
           inspectMessage: `feat(core): commit number ${i}\n\nThis is the body of commit ${i}.` 
         };
       }
-    }
+    },
+    getAllBranches: async () => [],
+    getMergeBase: async () => null,
+    getCommitsDag: async function* () {},
   }
 });
 

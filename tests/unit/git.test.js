@@ -10,6 +10,8 @@ let validReferences = new Set();
 let capturedSpawnArgs = null;
 let mockStdoutLines = [];
 let spawnExitCode = 0;
+let mockBranchesRaw = '';
+let mockMergeBaseResult = {};
 
 // Helper to consume async generator
 async function consume(iterator) {
@@ -54,6 +56,19 @@ mock.module('simple-git', {
             }
             return commitCount;
           }
+          if (args[0] === 'branch') {
+            return mockBranchesRaw;
+          }
+          if (args[0] === 'merge-base') {
+            const key = `${args[1]}..${args[2]}`;
+            if (mockMergeBaseResult[key] !== undefined) {
+              if (mockMergeBaseResult[key] === null) {
+                throw new Error('fatal: Not a valid object name');
+              }
+              return mockMergeBaseResult[key];
+            }
+            return '';
+          }
           return '';
         },
         revparse: async (args) => {
@@ -75,13 +90,13 @@ mock.module('simple-git', {
 });
 
 // Import the module under test after registering the mock module
-const { getCommits } = await import('../../src/git.js');
+const { getCommits, getAllBranches, getMergeBase, getCommitsDag } = await import('../../src/git.js');
 
 test('getCommits - throws error when directory is not a git repo', async () => {
   isRepo = false;
   await assert.rejects(
     consume(getCommits()),
-    /El directorio actual no es un repositorio Git válido\./
+    /(?:El directorio actual no es un repositorio Git válido|The current directory is not a valid Git repository)\./
   );
 });
 
@@ -90,7 +105,7 @@ test('getCommits - throws error when repository has no commits', async () => {
   commitCount = '0';
   await assert.rejects(
     consume(getCommits()),
-    /El repositorio no tiene commits\./
+    /(?:El repositorio no tiene commits|The repository contains no commits)\./
   );
 });
 
@@ -130,7 +145,7 @@ test('getCommits - throws error when --to reference is invalid', async () => {
   
   await assert.rejects(
     consume(getCommits({ to: 'non-existent-to' })),
-    /La referencia "non-existent-to" no existe/
+    /(?:La referencia "non-existent-to" no existe|The reference "non-existent-to" does not exist)/
   );
 });
 
@@ -142,7 +157,7 @@ test('getCommits - throws error when --from reference is invalid', async () => {
   
   await assert.rejects(
     consume(getCommits({ from: 'non-existent-from' })),
-    /La referencia "non-existent-from" no existe/
+    /(?:La referencia "non-existent-from" no existe|The reference "non-existent-from" does not exist)/
   );
 });
 
@@ -183,3 +198,96 @@ test('getCommits - automatic tag fallback', async () => {
   assert.strictEqual(commits[0].hash, 'h3');
   assert.ok(capturedSpawnArgs.includes('v1.0.0..HEAD'));
 });
+
+test('getAllBranches - throws error when directory is not a git repo', async () => {
+  isRepo = false;
+  await assert.rejects(
+    getAllBranches(),
+    /(?:El directorio actual no es un repositorio Git válido|The current directory is not a valid Git repository)\./
+  );
+});
+
+test('getAllBranches - parses branches, normalizes names and deduplicates identical remotes', async () => {
+  isRepo = true;
+  mockBranchesRaw = [
+    'refs/heads/main\x00main\x00hash_main\x00*',
+    'refs/heads/feature/auth\x00feature/auth\x00hash_auth\x00 ',
+    'refs/remotes/origin/main\x00origin/main\x00hash_main\x00 ',
+    'refs/remotes/origin/HEAD\x00origin/HEAD\x00hash_main\x00 ',
+    'refs/remotes/origin/feature/payments\x00origin/feature/payments\x00hash_payments\x00 '
+  ].join('\n');
+
+  const branches = await getAllBranches();
+  assert.strictEqual(branches.length, 3);
+
+  const mainBranch = branches.find((b) => b.name === 'main');
+  assert.ok(mainBranch);
+  assert.strictEqual(mainBranch.targetCommit, 'hash_main');
+  assert.strictEqual(mainBranch.isCurrent, true);
+  assert.strictEqual(mainBranch.isRemote, false);
+
+  const authBranch = branches.find((b) => b.name === 'feature/auth');
+  assert.ok(authBranch);
+  assert.strictEqual(authBranch.targetCommit, 'hash_auth');
+  assert.strictEqual(authBranch.isCurrent, false);
+  assert.strictEqual(authBranch.isRemote, false);
+
+  const paymentsBranch = branches.find((b) => b.name === 'origin/feature/payments');
+  assert.ok(paymentsBranch);
+  assert.strictEqual(paymentsBranch.targetCommit, 'hash_payments');
+  assert.strictEqual(paymentsBranch.isRemote, true);
+});
+
+test('getMergeBase - returns common ancestor hash when resolved', async () => {
+  isRepo = true;
+  mockMergeBaseResult['main..feature/auth'] = 'hash_base_123';
+
+  const base = await getMergeBase('main', 'feature/auth');
+  assert.strictEqual(base, 'hash_base_123');
+});
+
+test('getMergeBase - returns null when no common ancestor or error', async () => {
+  isRepo = true;
+  mockMergeBaseResult['main..orphan_branch'] = null;
+
+  const base = await getMergeBase('main', 'orphan_branch');
+  assert.strictEqual(base, null);
+});
+
+test('getCommitsDag - throws error when directory is not a git repo', async () => {
+  isRepo = false;
+  await assert.rejects(
+    consume(getCommitsDag()),
+    /(?:El directorio actual no es un repositorio Git válido|The current directory is not a valid Git repository)\./
+  );
+});
+
+test('getCommitsDag - parses commit nodes with parents and author information', async () => {
+  isRepo = true;
+  commitCount = '2';
+  capturedSpawnArgs = null;
+  spawnExitCode = 0;
+
+  mockStdoutLines = [
+    'hash_m\x00hash_p1 hash_p2\x00Carlos Ruiz\x00carlos@corp.com\x001767225600\x00feat(cart): merge feature branch',
+    'hash_p1\x00hash_root\x00Ana Gomez\x00ana@corp.com\x001767139200\x00fix(auth): fix token validation'
+  ];
+
+  const nodes = await consume(getCommitsDag(['--all']));
+  assert.strictEqual(nodes.length, 2);
+
+  const mergeNode = nodes[0];
+  assert.strictEqual(mergeNode.hash, 'hash_m');
+  assert.deepStrictEqual(mergeNode.parents, ['hash_p1', 'hash_p2']);
+  assert.strictEqual(mergeNode.author, 'Carlos Ruiz');
+  assert.strictEqual(mergeNode.email, 'carlos@corp.com');
+  assert.strictEqual(mergeNode.timestamp, 1767225600);
+  assert.strictEqual(mergeNode.subject, 'feat(cart): merge feature branch');
+  assert.strictEqual(mergeNode.isMerge, true);
+
+  const regularNode = nodes[1];
+  assert.strictEqual(regularNode.hash, 'hash_p1');
+  assert.deepStrictEqual(regularNode.parents, ['hash_root']);
+  assert.strictEqual(regularNode.isMerge, false);
+});
+

@@ -5,12 +5,14 @@ import { getCommits } from './git.js';
 import { parseCommit } from './parser.js';
 import { lintCommit, loadRules, deepMerge } from './linter.js';
 import { renderDocument } from './renderer.js';
+import { initI18n, t } from './i18n/index.js';
 import pc from 'picocolors';
 
 // Output file names indexed by tipo
 const OUTPUT_FILES = {
   changelog: 'CHANGELOG.md',
   pap:       'PAP.md',
+  graph:     'GRAPH.md',
 };
 
 export async function* runPipeline(tipo, options = {}, rules = {}) {
@@ -23,29 +25,95 @@ export async function* runPipeline(tipo, options = {}, rules = {}) {
 }
 
 export async function runGenerate(tipo, options = {}) {
-  const tiposValidos = ['changelog', 'pap'];
+  // Load business rules once
+  let rules = {};
+  try {
+    rules = loadRules('config/rules.json');
+  } catch {
+    // Si no se encuentra rules.json en ruta relativa
+  }
+
+  // Load local config .gitdocrc.json if present
+  const localConfigPath = resolve(process.cwd(), '.gitdocrc.json');
+  if (existsSync(localConfigPath)) {
+    try {
+      const localConfigContent = readFileSync(localConfigPath, 'utf-8');
+      const localRules = JSON.parse(localConfigContent);
+      rules = deepMerge(rules, localRules);
+    } catch (err) {
+      console.error(pc.red(`Error al cargar el archivo de configuración .gitdocrc.json: ${err.message}`));
+      process.exit(1);
+    }
+  }
+
+  // Inicializar i18n con precedencia: options.lang > rules.locale > OS
+  const i18nInstance = initI18n({
+    lang: options.lang,
+    configLocale: rules.locale,
+    customCatalogs: rules.i18n,
+  });
+
+  const tiposValidos = ['changelog', 'pap', 'graph'];
   if (!tiposValidos.includes(tipo)) {
-    console.error(pc.red(`Error: El tipo de documento "${tipo}" no es válido. Debe ser "changelog" o "pap".`));
+    console.error(pc.red(t('pipeline.errors.invalidType', { tipo })));
     process.exit(1);
   }
 
   try {
-    // Load business rules once
-    let rules = loadRules('config/rules.json');
+    // Hito 12: Generación de reporte topológico y grafo Mermaid
+    if (tipo === 'graph') {
+      const { extractTopology } = await import('./graph/topology.js');
+      const { analyzeCollaborators } = await import('./graph/collaborators.js');
+      const { printTerminalTree } = await import('./graph/terminal.js');
 
-    // Load local config .gitdocrc.json if present
-    const localConfigPath = resolve(process.cwd(), '.gitdocrc.json');
-    if (existsSync(localConfigPath)) {
-      try {
-        const localConfigContent = readFileSync(localConfigPath, 'utf-8');
-        const localRules = JSON.parse(localConfigContent);
-        rules = deepMerge(rules, localRules);
-      } catch (err) {
-        console.error(pc.red(`Error al cargar el archivo de configuración .gitdocrc.json: ${err.message}`));
-        process.exit(1);
+      const baseBranch = options.baseBranch || rules.baseBranch;
+      const topo = await extractTopology({
+        ...options,
+        ...(baseBranch ? { baseBranch } : {}),
+        cwd: options.cwd || process.cwd(),
+      });
+      const metrics = analyzeCollaborators(topo, { ...options, ...(baseBranch ? { baseBranch } : {}) });
+
+      if (options.dryRun) {
+        process.stdout.write(pc.yellow(t('pipeline.dryRunNotice')));
+        printTerminalTree(topo, metrics, { i18nInstance });
+        return;
       }
-    }
 
+      if (options.html || (options.output && options.output.endsWith('.html'))) {
+        const { generateHtmlViewer } = await import('./graph/html.js');
+        const htmlContent = await generateHtmlViewer(topo, metrics, {
+          ...options,
+          lang: options.lang || rules.locale || ((typeof Intl !== 'undefined' && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions().locale?.startsWith('es')) ? 'es' : 'en'),
+          langExplicit: Boolean(options.lang || rules.locale),
+          remoteUrl: rules.remoteUrl || undefined,
+          verbose: options.verbose || false,
+        });
+        const outputPath = resolve(process.cwd(), options.output || 'GRAPH.html');
+        const outputDir = dirname(outputPath);
+        await mkdir(outputDir, { recursive: true });
+        await writeFile(outputPath, htmlContent, 'utf-8');
+        console.log(pc.green(t('pipeline.successGenerated', { path: options.output || 'GRAPH.html' })));
+        return;
+      }
+
+      const markdown = await renderDocument(topo, 'graph', {
+        template: options.template || undefined,
+        simplified: !!options.simplified,
+        diagramStyle: options.diagramStyle || undefined,
+        topology: topo,
+        collaborators: metrics,
+        remoteUrl: rules.remoteUrl || undefined,
+        i18nInstance,
+      });
+
+      const outputPath = resolve(process.cwd(), options.output || OUTPUT_FILES[tipo]);
+      const outputDir = dirname(outputPath);
+      await mkdir(outputDir, { recursive: true });
+      await writeFile(outputPath, markdown, 'utf-8');
+      console.log(pc.green(t('pipeline.successGenerated', { path: options.output || OUTPUT_FILES[tipo] })));
+      return;
+    }
     const parsedCommits = [];
     const lintErrors = [];
 
@@ -61,9 +129,9 @@ export async function runGenerate(tipo, options = {}) {
     }
 
     if (lintErrors.length > 0) {
-      console.error(pc.red('❌ El linter de negocio encontró commits inválidos:\n'));
+      console.error(pc.red(t('pipeline.errors.linterInvalidCommits')));
       for (const { commit, errors } of lintErrors) {
-        console.error(pc.red(`  Commit: ${commit.hash || '(sin hash)'} — ${commit.type}(${commit.scope}): ${commit.subject}`));
+        console.error(pc.red(`  Commit: ${commit.hash || t('pipeline.commitWithoutHash')} — ${commit.type}(${commit.scope}): ${commit.subject}`));
         for (const err of errors) {
           console.error(pc.red(`    → ${err}`));
         }
@@ -77,17 +145,18 @@ export async function runGenerate(tipo, options = {}) {
       template: options.template || undefined,
       verbose: options.verbose || false,
       remoteUrl: rules.remoteUrl || undefined,
+      i18nInstance,
     });
 
     if (options.dryRun) {
-      process.stdout.write(pc.yellow('⚠  Modo simulación (--dry-run): no se escribirán archivos físicos.\n\n'));
+      process.stdout.write(pc.yellow(t('pipeline.dryRunNotice')));
       process.stdout.write(markdown);
     } else {
       const outputPath = resolve(process.cwd(), options.output || OUTPUT_FILES[tipo]);
       const outputDir = dirname(outputPath);
       await mkdir(outputDir, { recursive: true });
       await writeFile(outputPath, markdown, 'utf-8');
-      console.log(pc.green(`✅ Documento generado: ${options.output || OUTPUT_FILES[tipo]}`));
+      console.log(pc.green(t('pipeline.successGenerated', { path: options.output || OUTPUT_FILES[tipo] })));
     }
   } catch (error) {
     console.error(pc.red(`Error: ${error.message}`));

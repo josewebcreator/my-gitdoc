@@ -1,5 +1,7 @@
 import { CommitParser } from 'conventional-commits-parser';
 
+const sharedParser = new CommitParser();
+
 export function parseCommit(commitMessage) {
   if (!commitMessage) {
     return {
@@ -11,8 +13,7 @@ export function parseCommit(commitMessage) {
     };
   }
 
-  const parser = new CommitParser();
-  const parsed = parser.parse(commitMessage);
+  const parsed = sharedParser.parse(commitMessage);
 
   return {
     type: parsed.type || null,
