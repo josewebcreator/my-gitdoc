@@ -9,7 +9,7 @@ import { getCommits, getAllBranches } from './git.js';
 import { parseCommit } from './parser.js';
 import { detectBaseBranch, extractTopology, printTopologyReport } from './graph/topology.js';
 import { analyzeCollaborators } from './graph/collaborators.js';
-import { initI18n, t } from './i18n/index.js';
+import { initI18n, t, getI18n } from './i18n/index.js';
 import pc from 'picocolors';
 
 // ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     ],
   });
 
-  // Si es tipo graph, preguntar estilo de diagrama
+  // Si es tipo graph, preguntar estilo de diagrama o formato
   let diagramStyle = 'flowchart';
   if (tipo === 'graph') {
     diagramStyle = await _select({
@@ -219,12 +219,11 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
         { name: t('wizard.graph.diagramFlowchart'), value: 'flowchart' },
         { name: t('wizard.graph.diagramGitGraph'), value: 'gitgraph' },
         { name: t('wizard.graph.diagramBoth'), value: 'both' },
+        { name: t('wizard.generate.graphFormatHtml'), value: 'html' },
       ],
       default: 'flowchart',
     });
   }
-
-
 
   // 2. Rango de commits: --from / --to
   const refs = await getGitRefs();
@@ -277,16 +276,16 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
   // 5. Nombre de archivo de salida (solo si persistir)
   let outputPath = '';
   if (!isDryRun) {
-    const defaultOutput = tipo === 'changelog' ? 'CHANGELOG.md' : (tipo === 'pap' ? 'PAP.md' : 'GRAPH.md');
+    const defaultOutput = tipo === 'changelog' ? 'CHANGELOG.md' : (tipo === 'pap' ? 'PAP.md' : (diagramStyle === 'html' ? 'GRAPH.html' : 'GRAPH.md'));
     outputPath = await _input({
       message: t('wizard.generate.outputPath'),
       default: defaultOutput,
     });
   }
 
-  // 6. Verbose (solo para changelog y pap)
+  // 6. Verbose
   let verbose = false;
-  if (tipo !== 'graph') {
+  if (tipo !== 'graph' || diagramStyle === 'html') {
     verbose = await _confirm({
       message: t('wizard.generate.confirmVerbose'),
       default: false,
@@ -299,7 +298,8 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
     to: toRef === 'HEAD' ? undefined : toRef,
     scope: scopeFilter || undefined,
     simplified: diagramStyle === 'flowchart',
-    diagramStyle: tipo === 'graph' ? diagramStyle : undefined,
+    diagramStyle: (tipo === 'graph' && diagramStyle !== 'html') ? diagramStyle : undefined,
+    html: diagramStyle === 'html',
     dryRun: isDryRun,
     output: outputPath || undefined,
     verbose,
@@ -316,18 +316,31 @@ export async function runWizardGenerate(prompts = {}, options = {}) {
         const { analyzeCollaborators } = await import('./graph/collaborators.js');
         const topo = await extractTopology(genOptions);
         const metrics = analyzeCollaborators(topo, genOptions);
-        const markdown = await renderDocument(topo, 'graph', {
-          simplified: genOptions.simplified,
-          diagramStyle: genOptions.diagramStyle,
-          topology: topo,
-          collaborators: metrics,
-          i18nInstance: activeI18n,
-        });
 
-        console.log(pc.yellow(t('wizard.generate.previewNotice')));
-        console.log(pc.dim('─'.repeat(60)));
-        console.log(markdown);
-        console.log(pc.dim('─'.repeat(60)));
+        if (diagramStyle === 'html') {
+          const { generateHtmlViewer } = await import('./graph/html.js');
+          const html = await generateHtmlViewer(topo, metrics, {
+            ...genOptions,
+            remoteUrl: existingConfig.remoteUrl || undefined,
+          });
+          console.log(pc.yellow(t('wizard.generate.previewNotice')));
+          console.log(pc.dim('─'.repeat(60)));
+          console.log(`<!DOCTYPE html> ... [GitLab HTML Viewer Bundle: ${html.length} bytes]`);
+          console.log(pc.dim('─'.repeat(60)));
+        } else {
+          const markdown = await renderDocument(topo, 'graph', {
+            simplified: genOptions.simplified,
+            diagramStyle: genOptions.diagramStyle,
+            topology: topo,
+            collaborators: metrics,
+            i18nInstance: activeI18n,
+          });
+
+          console.log(pc.yellow(t('wizard.generate.previewNotice')));
+          console.log(pc.dim('─'.repeat(60)));
+          console.log(markdown);
+          console.log(pc.dim('─'.repeat(60)));
+        }
       } else {
         const { runPipeline } = await import('./pipeline.js');
         const parsedCommits = [];
@@ -468,6 +481,7 @@ export async function runWizardTopology(prompts = {}, options = {}) {
     choices: [
       { name: t('wizard.topology.formatTree'), value: 'tree' },
       { name: t('wizard.topology.formatGraph'), value: 'graph' },
+      { name: t('wizard.topology.formatHtml'), value: 'html' },
       { name: t('wizard.topology.formatTerminal'), value: 'terminal' },
       { name: t('wizard.topology.formatJson'), value: 'json' },
     ],
@@ -491,6 +505,25 @@ export async function runWizardTopology(prompts = {}, options = {}) {
     if (format === 'tree') {
       const { printTerminalTree } = await import('./graph/terminal.js');
       printTerminalTree(topo, metrics);
+      return { topology: topo, collaborators: metrics };
+    }
+
+    if (format === 'html') {
+      const outputPath = await _input({
+        message: t('wizard.generate.outputPath'),
+        default: 'GRAPH.html',
+      });
+      const { generateHtmlViewer } = await import('./graph/html.js');
+      const htmlContent = await generateHtmlViewer(topo, metrics, {
+        ...topoOptions,
+        lang: options.lang || topoOptions.lang || existingConfig.locale || ((typeof Intl !== 'undefined' && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions().locale?.startsWith('es')) ? 'es' : 'en'),
+        remoteUrl: existingConfig.remoteUrl || undefined,
+        verbose: Boolean(options.verbose),
+      });
+      const resolvedPath = resolve(process.cwd(), outputPath || 'GRAPH.html');
+      await mkdir(dirname(resolvedPath), { recursive: true });
+      await writeFile(resolvedPath, htmlContent, 'utf-8');
+      console.log(pc.green(t('wizard.topology.htmlSaved', { path: outputPath || 'GRAPH.html' })));
       return { topology: topo, collaborators: metrics };
     }
 
